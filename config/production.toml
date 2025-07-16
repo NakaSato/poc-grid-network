@@ -1,0 +1,41 @@
+# Production Configuration for Thai Energy Trading Blockchain
+
+[blockchain]
+network = "production"
+consensus_algorithm = "proof_of_work"
+block_time = 30
+difficulty_adjustment = true
+max_block_size = 1048576
+mempool_size = 10000
+min_gas_price = 1000
+
+[api]
+host = "0.0.0.0"
+port = 8080
+ws_port = 9944
+metrics_port = 9090
+
+[database]
+# Set via environment variable DATABASE_URL
+max_connections = 100
+timeout = 30
+
+[redis]
+# Set via environment variable REDIS_URL
+max_connections = 50
+timeout = 10
+
+[security]
+# Set via environment variables
+# SECRET_KEY
+# ENCRYPTION_KEY
+
+[logging]
+level = "info"
+format = "json"
+
+[trading]
+max_order_size = 1000000
+min_order_size = 1
+default_gas_limit = 100000
+trading_fee_percentage = 0.5

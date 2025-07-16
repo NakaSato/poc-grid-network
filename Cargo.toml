@@ -1,0 +1,58 @@
+[package]
+name = "thai-energy-trading-blockchain"
+version = "0.0.1"
+edition = "2021"
+authors = ["GridTokenX Team"]
+description = "A blockchain-only energy trading platform for Thailand (No HTTP APIs)"
+license = "MIT"
+repository = "https://github.com/your-org/thai-energy-trading-blockchain"
+
+[lib]
+name = "thai_energy_trading_blockchain"
+path = "src/lib.rs"
+
+[[bin]]
+name = "thai-energy-trading-blockchain"
+path = "src/main.rs"
+
+[dependencies]
+# Async runtime
+tokio = { version = "1.0", features = ["full"] }
+
+# Database
+sqlx = { version = "0.8.6", features = ["runtime-tokio-rustls", "postgres", "chrono", "uuid"] }
+redis = { version = "0.32.4", features = ["tokio-comp"] }
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Cryptography
+ed25519-dalek = "2.0"
+blake2 = "0.10"
+hex = "0.4"
+sha2 = "0.10"
+
+# Utilities
+uuid = { version = "1.0", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+anyhow = "1.0"
+thiserror = "2.0.12"
+log = "0.4"
+env_logger = "0.11.8"
+rand = "0.9.1"
+regex = "1.10"
+
+# Configuration
+config = "0.15.13"
+dotenv = "0.15"
+
+# Networking
+libp2p = "0.56.0"
+
+# Async utilities
+futures = "0.3"
+async-trait = "0.1"
+
+[dev-dependencies]
+tokio-test = "0.4"

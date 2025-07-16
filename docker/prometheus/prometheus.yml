@@ -1,0 +1,72 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  # - "first_rules.yml"
+  # - "second_rules.yml"
+
+scrape_configs:
+  # Thai Energy Trading Blockchain metrics
+  - job_name: 'thai-energy-blockchain'
+    static_configs:
+      - targets: ['thai-energy-blockchain:9090']
+    metrics_path: '/metrics'
+    scrape_interval: 5s
+    scrape_timeout: 5s
+
+  # PostgreSQL metrics
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['postgres:5432']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+
+  # Redis metrics
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis:6379']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+
+  # Nginx metrics
+  - job_name: 'nginx'
+    static_configs:
+      - targets: ['nginx:80']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+
+  # Node exporter (if deployed)
+  - job_name: 'node'
+    static_configs:
+      - targets: ['node-exporter:9100']
+    scrape_interval: 30s
+
+  # Prometheus itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+# Alerting configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          # - alertmanager:9093
+
+# Recording rules for performance
+recording_rules:
+  - name: thai_energy_blockchain_rules
+    interval: 30s
+    rules:
+      - record: thai_energy:transaction_rate
+        expr: rate(blockchain_transactions_total[5m])
+      
+      - record: thai_energy:block_rate
+        expr: rate(blockchain_blocks_total[5m])
+      
+      - record: thai_energy:energy_traded_rate
+        expr: rate(trading_energy_traded_total[5m])
+      
+      - record: thai_energy:grid_utilization_avg
+        expr: avg(grid_utilization_percent) by (location)
