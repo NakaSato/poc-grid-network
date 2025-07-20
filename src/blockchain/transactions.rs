@@ -453,6 +453,26 @@ impl EnergyTransactionEnvelope {
             _ => 1000,
         }
     }
+
+    /// Get transaction sender account ID
+    pub fn get_sender(&self) -> AccountId {
+        match &self.transaction {
+            EnergyTransaction::Transfer { from, .. } => from.clone(),
+            EnergyTransaction::PlaceOrder { trader, .. } => trader.clone(),
+            EnergyTransaction::CancelOrder { trader, .. } => trader.clone(),
+            EnergyTransaction::ExecuteTrade { trade, .. } => trade.buyer_id.clone(),
+            EnergyTransaction::ReportProduction { producer, .. } => producer.clone(),
+            EnergyTransaction::ReportConsumption { consumer, .. } => consumer.clone(),
+            EnergyTransaction::DeployContract { deployer, .. } => deployer.clone(),
+            EnergyTransaction::ExecuteContract { caller, .. } => caller.clone(),
+            EnergyTransaction::GovernanceVote { voter, .. } => voter.clone(),
+            EnergyTransaction::RegisterProducer { producer, .. } => producer.clone(),
+            EnergyTransaction::RegisterConsumer { consumer, .. } => consumer.clone(),
+            EnergyTransaction::UpdateGridStatus { authority, .. } => authority.clone(),
+            EnergyTransaction::CarbonCredit { issuer, .. } => issuer.clone(),
+            EnergyTransaction::EnergyStorage { storage_operator, .. } => storage_operator.clone(),
+        }
+    }
 }
 
 /// Transaction validation result

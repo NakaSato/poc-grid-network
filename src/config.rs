@@ -540,8 +540,6 @@ impl Default for BlockchainConfig {
             ws_port: 9944,
             p2p_port: 30333,
             chain_spec: "dev".to_string(),
-            enable_mining: true,
-            mining_difficulty: 4,
             gas_limit: 1000000,
             gas_price: 1000000000,
             smart_contract_vm: SmartContractConfig::default(),

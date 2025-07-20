@@ -1,6 +1,6 @@
-//! # Thai Energy Trading Blockchain Library
+//! # GridTokenX POC Blockchain Library
 //! 
-//! A blockchain-based energy trading platform for Thailand that enables
+//! A blockchain-based energy trading POC platform that enables
 //! peer-to-peer energy trading with 1:1 token-energy ratio.
 //! 
 //! ## Architecture Overview
@@ -71,9 +71,9 @@ pub struct ThaiEnergyTradingSystem {
 }
 
 impl ThaiEnergyTradingSystem {
-    /// Create a new Thai Energy Trading System instance
+    /// Create a new GridTokenX POC System instance
     pub async fn new(config: SystemConfig) -> Result<Self> {
-        info!("🚀 Initializing Thai Energy Trading Blockchain System");
+        info!("🚀 Initializing GridTokenX POC Blockchain System");
         
         // Initialize infrastructure components
         let database_manager = Arc::new(DatabaseManager::new(&config.database, config.test_mode).await?);
@@ -112,9 +112,9 @@ impl ThaiEnergyTradingSystem {
         })
     }
     
-    /// Start the Thai Energy Trading System
+    /// Start the GridTokenX POC System
     pub async fn start(&self) -> Result<()> {
-        info!("⚡ Starting Thai Energy Trading Blockchain System");
+        info!("⚡ Starting GridTokenX POC Blockchain System");
         
         // Start infrastructure layer
         self.database_manager.start().await?;
@@ -133,13 +133,13 @@ impl ThaiEnergyTradingSystem {
         // Start blockchain interface
         self.blockchain_interface.start().await?;
         
-        info!("✅ Thai Energy Trading Blockchain System started successfully");
+        info!("✅ GridTokenX POC Blockchain System started successfully");
         Ok(())
     }
     
-    /// Stop the Thai Energy Trading System
+    /// Stop the GridTokenX POC System
     pub async fn stop(&self) -> Result<()> {
-        info!("🛑 Stopping Thai Energy Trading Blockchain System");
+        info!("🛑 Stopping GridTokenX POC Blockchain System");
         
         // Stop in reverse order
         self.blockchain_interface.stop().await?;
@@ -155,7 +155,7 @@ impl ThaiEnergyTradingSystem {
         self.grid_manager.stop().await?;
         self.database_manager.stop().await?;
         
-        info!("✅ Thai Energy Trading Blockchain System stopped successfully");
+        info!("✅ GridTokenX POC Blockchain System stopped successfully");
         Ok(())
     }
     

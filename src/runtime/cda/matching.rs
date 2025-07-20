@@ -5,7 +5,6 @@
 use super::types::*;
 use crate::types::*;
 use crate::utils::SystemResult;
-use chrono::Utc;
 use std::collections::BTreeMap;
 use uuid::Uuid;
 
@@ -93,11 +92,13 @@ impl MatchingEngine {
         }
 
         // Get top bid levels
+        let now = chrono::Utc::now();
         for (price, (total_quantity, order_count)) in bid_levels.iter().rev().take(levels) {
             bids.push(OrderBookLevel {
                 price: price.0,
                 total_quantity: *total_quantity,
-                order_count: *order_count,
+                order_count: *order_count as u32,
+                timestamp: now,
             });
         }
 
@@ -115,15 +116,41 @@ impl MatchingEngine {
             asks.push(OrderBookLevel {
                 price: price.0,
                 total_quantity: *total_quantity,
-                order_count: *order_count,
+                order_count: *order_count as u32,
+                timestamp: now,
             });
         }
 
+        // Calculate market statistics
+        let best_bid = bids.first().map(|level| level.price).unwrap_or(0.0);
+        let best_ask = asks.first().map(|level| level.price).unwrap_or(0.0);
+        let spread = if best_bid > 0.0 && best_ask > 0.0 { best_ask - best_bid } else { 0.0 };
+        let mid_price = if best_bid > 0.0 && best_ask > 0.0 { (best_bid + best_ask) / 2.0 } else { 0.0 };
+        let total_bid_volume = bids.iter().map(|level| level.total_quantity).sum();
+        let total_ask_volume = asks.iter().map(|level| level.total_quantity).sum();
+
+        // Create a default grid location (this should be passed as parameter in real usage)
+        let grid_location = GridLocation {
+            province: "Bangkok".to_string(),
+            district: "Pathum Wan".to_string(),
+            coordinates: (13.7563, 100.5018),
+            region: "Central".to_string(),
+            substation: "Default".to_string(),
+            grid_code: "DEFAULT".to_string(),
+            meter_id: "DEFAULT".to_string(),
+        };
+
         MarketDepth {
-            grid_location: GridLocation::Bangkok, // TODO: Make this configurable per location
             bids,
             asks,
-            last_updated: Utc::now(),
+            spread,
+            mid_price,
+            total_bid_volume,
+            total_ask_volume,
+            timestamp: now,
+            // Additional fields for compatibility
+            grid_location,
+            last_updated: now,
         }
     }
 
@@ -157,17 +184,26 @@ impl MatchingEngine {
             if let Some(sell_order) = self.sell_orders.get(&key) {
                 let execution_amount = remaining_amount.min(sell_order.energy_amount);
                 
+                let execution_time = chrono::Utc::now();
                 let execution = TradeExecution {
                     trade_id: Uuid::new_v4(),
                     buy_order_id: buy_order.id,
                     sell_order_id: sell_order.id,
+                    price: sell_order.price, // Price improvement for buyer
+                    quantity: execution_amount,
+                    buyer_id: buy_order.account_id.clone(),
+                    seller_id: sell_order.account_id.clone(),
+                    execution_time,
+                    is_aggressive_buy: true, // Buy order is aggressive
+                    location: buy_order.grid_location.clone(),
+                    energy_source: sell_order.energy_source.clone(),
+                    fees: crate::runtime::cda::types::TradeFees::default(),
+                    // Additional fields for compatibility
                     buyer: buy_order.account_id.clone(),
                     seller: sell_order.account_id.clone(),
                     energy_amount: execution_amount,
-                    price: sell_order.price, // Price improvement for buyer
                     grid_location: buy_order.grid_location.clone(),
-                    energy_source: sell_order.energy_source.clone(),
-                    executed_at: Utc::now(),
+                    executed_at: execution_time,
                     settlement_status: SettlementStatus::Pending,
                 };
 
@@ -206,18 +242,27 @@ impl MatchingEngine {
 
             if let Some(buy_order) = self.buy_orders.get(&key) {
                 let execution_amount = remaining_amount.min(buy_order.energy_amount);
+                let execution_time = chrono::Utc::now();
                 
                 let execution = TradeExecution {
                     trade_id: Uuid::new_v4(),
                     buy_order_id: buy_order.id,
                     sell_order_id: sell_order.id,
+                    price: buy_order.price, // Price improvement for seller
+                    quantity: execution_amount,
+                    buyer_id: buy_order.account_id.clone(),
+                    seller_id: sell_order.account_id.clone(),
+                    execution_time,
+                    is_aggressive_buy: false, // Sell order is aggressive
+                    location: sell_order.grid_location.clone(),
+                    energy_source: sell_order.energy_source.clone(),
+                    fees: crate::runtime::cda::types::TradeFees::default(),
+                    // Additional fields for compatibility
                     buyer: buy_order.account_id.clone(),
                     seller: sell_order.account_id.clone(),
                     energy_amount: execution_amount,
-                    price: buy_order.price, // Price improvement for seller
                     grid_location: sell_order.grid_location.clone(),
-                    energy_source: sell_order.energy_source.clone(),
-                    executed_at: Utc::now(),
+                    executed_at: execution_time,
                     settlement_status: SettlementStatus::Pending,
                 };
 

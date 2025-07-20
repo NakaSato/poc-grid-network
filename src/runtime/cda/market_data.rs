@@ -64,6 +64,17 @@ impl MarketDataManager {
         let total_bid_volume: EnergyAmount = bids.iter().map(|b| b.total_quantity).sum();
         let total_ask_volume: EnergyAmount = asks.iter().map(|a| a.total_quantity).sum();
         
+        let now = chrono::Utc::now();
+        let default_location = GridLocation {
+            province: "Default".to_string(),
+            district: "Default".to_string(),
+            coordinates: (0.0, 0.0),
+            region: "Default".to_string(),
+            substation: "Default".to_string(),
+            grid_code: "DEFAULT".to_string(),
+            meter_id: "DEFAULT".to_string(),
+        };
+        
         Ok(MarketDepth {
             bids,
             asks,
@@ -71,7 +82,10 @@ impl MarketDataManager {
             mid_price,
             total_bid_volume,
             total_ask_volume,
-            timestamp: crate::utils::now(),
+            timestamp: now,
+            // Additional fields for compatibility
+            grid_location: default_location,
+            last_updated: now,
         })
     }
     

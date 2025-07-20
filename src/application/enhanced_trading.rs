@@ -173,7 +173,7 @@ impl EnhancedTradingService {
     pub async fn get_recent_trades(&self, location: &GridLocation, limit: Option<usize>) -> SystemResult<Vec<TradeExecution>> {
         // For now, return all trades
         // In a full implementation, this would filter by location
-        self.cda_engine.get_trades(limit).await
+        self.cda_engine.get_recent_trades(limit).await
     }
     
     /// Get enhanced market data with CDA integration
@@ -207,7 +207,7 @@ impl EnhancedTradingService {
     /// Get user's trading history
     pub async fn get_user_trades(&self, account_id: &AccountId) -> SystemResult<Vec<EnergyTrade>> {
         // Get all trades from CDA
-        let executions = self.cda_engine.get_trades(None).await?;
+        let executions = self.cda_engine.get_recent_trades(None).await?;
         
         // Filter and convert to energy trades
         let mut user_trades = Vec::new();
@@ -435,13 +435,6 @@ impl EnhancedTradingService {
                 let trade = self.convert_execution_to_trade(&execution).await?;
                 self.store_trade(&trade).await?;
                 self.submit_trade_to_blockchain(&trade).await?;
-            },
-            OrderBookEvent::PriceUpdate(bid, ask) => {
-                // Update price information
-                crate::utils::logging::log_info(
-                    "EnhancedTradingService",
-                    &format!("Price update: bid={}, ask={}", bid, ask)
-                );
             },
             _ => {
                 // Handle other events as needed

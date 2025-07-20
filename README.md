@@ -1,13 +1,13 @@
-# Thai Energy Trading Blockchain Library
+# GridTokenX POC Blockchain Library
 
-A Rust library for building blockchain-based energy trading platforms in Thailand, enabling peer-to-peer energy trading with a 1:1 token-energy ratio.
+A Rust library for building blockchain-based energy trading platforms, enabling peer-to-peer energy trading with a 1:1 token-energy ratio - Proof of Concept.
 
 ## Features
 
 - **Pure Blockchain Architecture**: Direct blockchain interfaces without HTTP/REST API layers
 - **Energy-Focused**: Specialized for energy trading with 1 kWh = 1 Token ratio
 - **Modular Design**: Clean separation of concerns with layered architecture
-- **Thai Grid Integration**: Built for Thailand's energy grid infrastructure
+- **Grid Integration**: Built for energy grid infrastructure integration
 - **Governance System**: Decentralized governance for network decisions
 - **Oracle Integration**: Real-time price feeds and weather data
 - **Smart Contracts**: Energy-focused smart contract execution environment

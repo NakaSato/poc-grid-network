@@ -3,9 +3,9 @@ name = "thai-energy-trading-blockchain"
 version = "0.0.1"
 edition = "2021"
 authors = ["GridTokenX Team"]
-description = "A blockchain-only energy trading platform for Thailand (No HTTP APIs)"
+description = "GridTokenX POC - A blockchain-based energy trading proof-of-concept (No HTTP APIs)"
 license = "MIT"
-repository = "https://github.com/your-org/thai-energy-trading-blockchain"
+repository = "https://github.com/your-org/gridtokenx-poc"
 
 [lib]
 name = "thai_energy_trading_blockchain"

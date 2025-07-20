@@ -81,6 +81,22 @@ pub struct GridLocation {
     pub meter_id: String,
 }
 
+impl Eq for GridLocation {}
+
+impl std::hash::Hash for GridLocation {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.province.hash(state);
+        self.district.hash(state);
+        self.region.hash(state);
+        self.substation.hash(state);
+        self.grid_code.hash(state);
+        self.meter_id.hash(state);
+        // Hash coordinates as ordered bytes to handle f64
+        self.coordinates.0.to_bits().hash(state);
+        self.coordinates.1.to_bits().hash(state);
+    }
+}
+
 /// Energy source type
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum EnergySource {

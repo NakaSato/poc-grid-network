@@ -12,7 +12,6 @@ use self::types::*;
 use self::matching::MatchingEngine;
 use crate::types::*;
 use crate::utils::SystemResult;
-use chrono::Utc;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::{broadcast, RwLock};
@@ -43,19 +42,25 @@ impl ContinuousDoubleAuction {
     /// Place a new order in the CDA
     pub async fn place_order(&self, order: EnergyOrder) -> SystemResult<Vec<TradeExecution>> {
         let cda_order = CDAOrder {
+            base: order.clone(),
+            original_quantity: order.energy_amount,
+            filled_quantity: 0.0,
+            remaining_quantity: order.energy_amount,
+            is_hidden: false,
+            time_in_force: TimeInForce::GoodTillCancelled,
+            priority_timestamp: chrono::Utc::now(),
+            ice_berg_quantity: None,
+            // Direct field access compatibility
             id: order.id,
-            account_id: order.trader,
+            account_id: order.account_id,
             order_type: order.order_type,
             energy_amount: order.energy_amount,
-            price: order.price,
-            grid_location: order.grid_location,
-            energy_source: order.energy_source,
-            time_in_force: TimeInForce::GoodTillCancelled, // Default
-            created_at: Utc::now(),
-            expires_at: order.expires_at,
+            price: order.price_per_unit as f64,
+            grid_location: order.location,
+            energy_source: order.energy_source.unwrap_or(EnergySource::Mixed),
             filled_amount: 0.0,
-            status: CDAOrderStatus::Active,
-            priority_timestamp: Utc::now(),
+            minimum_fill: None,
+            post_only: false,
         };
 
         let mut engines = self.matching_engines.write().await;
@@ -64,11 +69,11 @@ impl ContinuousDoubleAuction {
         let executions = engine.add_order(cda_order.clone())?;
         
         // Broadcast order placed event
-        let _ = self.event_sender.send(OrderBookEvent::OrderPlaced(cda_order));
+        let _ = self.event_sender.send(OrderBookEvent::OrderAdded(cda_order));
         
         // Broadcast trade executions
         for execution in &executions {
-            let _ = self.event_sender.send(OrderBookEvent::OrderMatched(execution.clone()));
+            let _ = self.event_sender.send(OrderBookEvent::OrderExecuted(execution.clone()));
         }
 
         Ok(executions)
@@ -81,10 +86,7 @@ impl ContinuousDoubleAuction {
         if let Some(engine) = engines.get_mut(&grid_location) {
             if let Some(_cancelled_order) = engine.cancel_order(order_id)? {
                 // Broadcast cancellation event
-                let _ = self.event_sender.send(OrderBookEvent::OrderCancelled {
-                    order_id,
-                    cancelled_at: Utc::now(),
-                });
+                let _ = self.event_sender.send(OrderBookEvent::OrderCancelled(order_id));
                 return Ok(true);
             }
         }
@@ -100,11 +102,18 @@ impl ContinuousDoubleAuction {
             Ok(engine.get_market_depth(levels))
         } else {
             // Return empty market depth if no engine exists for this location
+            let now = chrono::Utc::now();
             Ok(MarketDepth {
-                grid_location: grid_location.clone(),
                 bids: Vec::new(),
                 asks: Vec::new(),
-                last_updated: Utc::now(),
+                spread: 0.0,
+                mid_price: 0.0,
+                total_bid_volume: 0.0,
+                total_ask_volume: 0.0,
+                timestamp: now,
+                // Additional fields for compatibility  
+                grid_location: grid_location.clone(),
+                last_updated: now,
             })
         }
     }

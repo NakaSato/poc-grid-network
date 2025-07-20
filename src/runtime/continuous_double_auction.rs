@@ -10,14 +10,17 @@
 //! - Comprehensive fee calculation and management
 //! - Location-aware energy trading
 
-use crate::runtime::cda::{
-    types::*, 
-    orders::OrderManager, 
-    fees::FeeCalculator, 
-    market_data::MarketDataManager
+use crate::{
+    runtime::cda::{
+        fees::FeeCalculator,
+        market_data::MarketDataManager,
+        matching::MatchingEngine,
+        orders::OrderManager,
+        types::*,
+    },
+    types::*,
+    utils::SystemResult,
 };
-use crate::types::*;
-use crate::utils::SystemResult;
 use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::sync::Arc;
 use tokio::sync::{broadcast, RwLock};
@@ -114,6 +117,25 @@ impl ContinuousDoubleAuction {
             Ok(false)
         }
     }
+
+    /// Validate order before processing
+    fn validate_order(&self, order: &CDAOrder) -> SystemResult<()> {
+        // Basic validation
+        if order.remaining_quantity <= 0.0 {
+            return Err(crate::utils::SystemError::InvalidOrder("Order quantity must be positive".to_string()));
+        }
+        
+        if order.price <= 0.0 {
+            return Err(crate::utils::SystemError::InvalidOrder("Order price must be positive".to_string()));
+        }
+        
+        if order.account_id.is_empty() {
+            return Err(crate::utils::SystemError::InvalidOrder("Order must have a valid account ID".to_string()));
+        }
+        
+        // Additional validations can be added here
+        Ok(())
+    }
     
     /// Get current market depth
     pub async fn get_market_depth(&self, levels: usize) -> SystemResult<MarketDepth> {
@@ -139,15 +161,27 @@ impl ContinuousDoubleAuction {
     
     /// Create CDA order from base order
     fn create_cda_order(&self, base_order: EnergyOrder) -> SystemResult<CDAOrder> {
+        let now = chrono::Utc::now();
         Ok(CDAOrder {
+            base: base_order.clone(),
             original_quantity: base_order.energy_amount,
             filled_quantity: 0.0,
             remaining_quantity: base_order.energy_amount,
             is_hidden: false,
-            minimum_fill: None,
             time_in_force: TimeInForce::GTC,
+            priority_timestamp: now,
+            ice_berg_quantity: None,
+            // Direct field access compatibility
+            id: base_order.id,
+            account_id: base_order.account_id,
+            order_type: base_order.order_type,
+            energy_amount: base_order.energy_amount,
+            price: base_order.price_per_unit as f64,
+            grid_location: base_order.location,
+            energy_source: base_order.energy_source.unwrap_or(EnergySource::Solar),
+            filled_amount: 0.0,
+            minimum_fill: None,
             post_only: false,
-            base: base_order,
         })
     }
     
@@ -273,6 +307,7 @@ impl ContinuousDoubleAuction {
         is_aggressive_buy: bool,
     ) -> SystemResult<TradeExecution> {
         let fees = self.fee_calculator.calculate_fees(price, quantity, is_aggressive_buy)?;
+        let execution_time = chrono::Utc::now();
         
         Ok(TradeExecution {
             trade_id: Uuid::new_v4(),
@@ -282,11 +317,18 @@ impl ContinuousDoubleAuction {
             quantity,
             buyer_id: buy_order.base.account_id.clone(),
             seller_id: sell_order.base.account_id.clone(),
-            execution_time: crate::utils::now(),
+            execution_time,
             is_aggressive_buy,
             location: sell_order.base.location.clone(),
             energy_source: sell_order.base.energy_source.clone().unwrap_or(EnergySource::Mixed),
             fees,
+            // Additional fields for compatibility
+            buyer: buy_order.base.account_id.clone(),
+            seller: sell_order.base.account_id.clone(),
+            energy_amount: quantity,
+            grid_location: sell_order.base.location.clone(),
+            executed_at: execution_time,
+            settlement_status: crate::runtime::cda::types::SettlementStatus::Pending,
         })
     }
     
@@ -387,6 +429,12 @@ impl ContinuousDoubleAuction {
         Ok(())
     }
 }
+
+// Re-export types for external use
+pub use crate::runtime::cda::types::{
+    MarketDepth, OrderBookEvent, TradeExecution, CDAOrder, TradeFees, 
+    TimeInForce, MatchingAlgorithm, OrderBookLevel, OrderedFloat, OrderStatus, SettlementStatus
+};
 
 impl Clone for ContinuousDoubleAuction {
     fn clone(&self) -> Self {
