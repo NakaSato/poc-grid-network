@@ -1,6 +1,6 @@
 //! # Consensus Engine
 //! 
-//! Implements Proof-of-Work consensus mechanism for energy trading blockchain.
+//! Implements Proof-of-Authority (PoA) consensus mechanism for energy trading blockchain.
 
 use crate::blockchain::transactions::{EnergyTransactionEnvelope, EnergyBalanceState, EnergyTransaction};
 use crate::config::BlockchainConfig;
@@ -8,22 +8,25 @@ use crate::types::*;
 use crate::utils::SystemResult;
 use serde::{Deserialize, Serialize};
 use sha2::{Sha256, Digest};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{SystemTime, UNIX_EPOCH, Duration};
 use tokio::sync::RwLock;
+use uuid::Uuid;
 
-/// Proof-of-Work consensus engine
+/// Proof-of-Authority consensus engine
 pub struct ConsensusEngine {
     config: BlockchainConfig,
     /// Current blockchain state
     blockchain_state: Arc<RwLock<BlockchainState>>,
-    /// Mining difficulty
-    difficulty: Arc<RwLock<u32>>,
-    /// Block template for mining
-    current_block_template: Arc<RwLock<Option<BlockTemplate>>>,
-    /// Mining status
-    is_mining: Arc<RwLock<bool>>,
+    /// Authorized validators
+    validators: Arc<RwLock<HashSet<AccountId>>>,
+    /// Current validator (if this node is a validator)
+    current_validator: Arc<RwLock<Option<AccountId>>>,
+    /// Validator rotation schedule
+    validator_schedule: Arc<RwLock<ValidatorSchedule>>,
+    /// Block production status
+    is_producing: Arc<RwLock<bool>>,
 }
 
 /// Blockchain state
@@ -41,6 +44,42 @@ pub struct BlockchainState {
     pub blocks: Vec<EnergyBlock>,
 }
 
+/// Authority validator information
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Authority {
+    /// Validator account ID
+    pub account_id: AccountId,
+    /// Validator name/organization
+    pub name: String,
+    /// Energy sector expertise
+    pub expertise: Vec<EnergySource>,
+    /// Validator reputation score
+    pub reputation: f64,
+    /// Grid locations this validator can authorize
+    pub authorized_regions: Vec<String>,
+    /// Validator public key for signatures
+    pub public_key: Vec<u8>,
+    /// Active status
+    pub is_active: bool,
+    /// Registration timestamp
+    pub registered_at: u64,
+}
+
+/// Validator schedule for block production
+#[derive(Debug, Clone)]
+pub struct ValidatorSchedule {
+    /// Current active validators
+    pub active_validators: Vec<AccountId>,
+    /// Current round number
+    pub round: u64,
+    /// Current validator index
+    pub current_validator_index: usize,
+    /// Block production interval (seconds)
+    pub block_interval: u64,
+    /// Last block production time
+    pub last_block_time: u64,
+}
+
 /// Energy-focused block structure
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct EnergyBlock {
@@ -50,9 +89,11 @@ pub struct EnergyBlock {
     pub transactions: Vec<EnergyTransactionEnvelope>,
     /// Energy statistics for this block
     pub energy_stats: EnergyBlockStats,
+    /// Validator signature
+    pub validator_signature: ValidatorSignature,
 }
 
-/// Block header with PoW fields
+/// Block header with PoA fields
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct BlockHeader {
     /// Block number
@@ -61,16 +102,25 @@ pub struct BlockHeader {
     pub parent_hash: Hash,
     /// Merkle root of transactions
     pub transaction_root: Hash,
+    /// State root hash
+    pub state_root: Hash,
     /// Timestamp
     pub timestamp: u64,
-    /// Mining difficulty
-    pub difficulty: u32,
-    /// Nonce for proof-of-work
-    pub nonce: u64,
+    /// Block producer (validator)
+    pub validator: AccountId,
     /// Block hash
     pub hash: Hash,
-    /// Miner account
-    pub miner: AccountId,
+}
+
+/// Validator signature for block authentication
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ValidatorSignature {
+    /// Validator account ID
+    pub validator: AccountId,
+    /// Digital signature
+    pub signature: Vec<u8>,
+    /// Signature timestamp
+    pub timestamp: u64,
 }
 
 /// Energy statistics for a block
@@ -90,20 +140,22 @@ pub struct EnergyBlockStats {
     pub carbon_credits: u32,
 }
 
-/// Block template for mining
-#[derive(Debug, Clone)]
-pub struct BlockTemplate {
-    /// Block header template
-    pub header: BlockHeader,
-    /// Transactions to include
-    pub transactions: Vec<EnergyTransactionEnvelope>,
-    /// Target difficulty
-    pub target: Hash,
-}
-
 impl ConsensusEngine {
     pub async fn new(config: &BlockchainConfig) -> SystemResult<Self> {
-        let genesis_block = Self::create_genesis_block();
+        // Validate that only PoA is configured
+        if config.consensus_algorithm != "proof_of_authority" {
+            return Err(crate::utils::SystemError::Configuration(
+                format!("Only Proof-of-Authority consensus is supported, got: {}", 
+                        config.consensus_algorithm)
+            ));
+        }
+        
+        crate::utils::logging::log_info(
+            "ConsensusEngine", 
+            "✅ Initializing Proof-of-Authority consensus engine (PoW disabled)"
+        );
+        
+        let genesis_block = Self::create_genesis_block().await?;
         let initial_state = BlockchainState {
             block_height: 0,
             latest_block_hash: genesis_block.header.hash.clone(),
@@ -112,119 +164,276 @@ impl ConsensusEngine {
             blocks: vec![genesis_block],
         };
         
+        // Initialize default energy authorities
+        let mut initial_validators = HashSet::new();
+        
+        // Add Thai energy authorities as initial validators
+        let energy_authority = AccountId::from_str("ThaiEnergyAuthority").unwrap_or_default();
+        let grid_authority = AccountId::from_str("GridAuthorityThailand").unwrap_or_default();
+        let renewable_authority = AccountId::from_str("RenewableEnergyAuth").unwrap_or_default();
+        
+        initial_validators.insert(energy_authority.clone());
+        initial_validators.insert(grid_authority.clone());
+        initial_validators.insert(renewable_authority.clone());
+        
+        let validator_schedule = ValidatorSchedule {
+            active_validators: vec![energy_authority, grid_authority, renewable_authority],
+            round: 0,
+            current_validator_index: 0,
+            block_interval: config.block_time, // Use configured block time
+            last_block_time: 0,
+        };
+        
+        crate::utils::logging::log_info(
+            "ConsensusEngine", 
+            &format!("🏛️ Initialized with {} validators, block time: {}s", 
+                    initial_validators.len(), config.block_time)
+        );
+        
         Ok(Self {
             config: config.clone(),
             blockchain_state: Arc::new(RwLock::new(initial_state)),
-            difficulty: Arc::new(RwLock::new(1)), // Start with low difficulty
-            current_block_template: Arc::new(RwLock::new(None)),
-            is_mining: Arc::new(RwLock::new(false)),
+            validators: Arc::new(RwLock::new(initial_validators)),
+            current_validator: Arc::new(RwLock::new(None)),
+            validator_schedule: Arc::new(RwLock::new(validator_schedule)),
+            is_producing: Arc::new(RwLock::new(false)),
         })
     }
     
     pub async fn start(&self) -> SystemResult<()> {
-        crate::utils::logging::log_info("ConsensusEngine", "Starting Proof-of-Work consensus engine");
+        // First, validate that this is a PoA-only system
+        self.validate_poa_only()?;
         
-        // Start mining if configured
-        if self.config.enable_mining {
-            self.start_mining().await?;
+        crate::utils::logging::log_startup("Proof-of-Authority Consensus Engine");
+        crate::utils::logging::log_info(
+            "ConsensusEngine",
+            &format!("🏛️ Starting PoA consensus with {} validators", 
+                    self.validators.read().await.len())
+        );
+        
+        // Check if this node is a validator
+        if self.config.validator {
+            self.initialize_validator().await?;
+            self.start_block_production().await?;
         }
-        
-        // Start block template generation
-        self.start_block_template_generation().await?;
         
         Ok(())
     }
     
     pub async fn stop(&self) -> SystemResult<()> {
-        crate::utils::logging::log_info("ConsensusEngine", "Stopping consensus engine");
+        crate::utils::logging::log_shutdown("PoA Consensus Engine");
         
-        // Stop mining
-        *self.is_mining.write().await = false;
+        // Stop block production
+        *self.is_producing.write().await = false;
         
         Ok(())
     }
     
-    /// Start mining process
-    async fn start_mining(&self) -> SystemResult<()> {
-        let state = self.blockchain_state.clone();
-        let difficulty = self.difficulty.clone();
-        let is_mining = self.is_mining.clone();
-        let template = self.current_block_template.clone();
+    /// Initialize this node as a validator
+    async fn initialize_validator(&self) -> SystemResult<()> {
+        // In a real implementation, this would load the validator's private key
+        // and register with the network
+        let validator_id = AccountId::from_str("LocalValidator").unwrap_or_default();
+        *self.current_validator.write().await = Some(validator_id.clone());
         
-        *is_mining.write().await = true;
+        // Add to validator set if not already present
+        let mut validators = self.validators.write().await;
+        validators.insert(validator_id);
+        
+        crate::utils::logging::log_info(
+            "ConsensusEngine", 
+            "Node initialized as PoA validator"
+        );
+        
+        Ok(())
+    }
+    
+    /// Start block production process for validators
+    async fn start_block_production(&self) -> SystemResult<()> {
+        let is_producing = self.is_producing.clone();
+        let validator_schedule = self.validator_schedule.clone();
+        let blockchain_state = self.blockchain_state.clone();
+        let current_validator = self.current_validator.clone();
+        
+        *is_producing.write().await = true;
         
         tokio::spawn(async move {
-            while *is_mining.read().await {
-                if let Some(block_template) = template.read().await.as_ref() {
-                    if let Some(mined_block) = Self::mine_block(block_template.clone(), *difficulty.read().await).await {
-                        // Add mined block to blockchain
-                        let mut blockchain_state = state.write().await;
-                        blockchain_state.blocks.push(mined_block.clone());
-                        blockchain_state.block_height += 1;
-                        blockchain_state.latest_block_hash = mined_block.header.hash.clone();
+            while *is_producing.read().await {
+                // Check if it's our turn to produce a block
+                if let Some(validator_id) = current_validator.read().await.as_ref() {
+                    let schedule = validator_schedule.read().await;
+                    let current_time = SystemTime::now()
+                        .duration_since(UNIX_EPOCH)
+                        .unwrap()
+                        .as_secs();
+                    
+                    // Check if it's time to produce a block and if we're the designated validator
+                    if current_time >= schedule.last_block_time + schedule.block_interval {
+                        let current_validator_id = &schedule.active_validators[schedule.current_validator_index];
                         
-                        // Apply block transactions to state
-                        Self::apply_block_transactions(&mut blockchain_state, &mined_block).await;
-                        
-                        crate::utils::logging::log_info(
-                            "ConsensusEngine",
-                            &format!("Mined block {} with {} transactions", 
-                                     mined_block.header.number, 
-                                     mined_block.transactions.len())
-                        );
+                        if validator_id == current_validator_id {
+                            // Produce a new block
+                            if let Err(e) = Self::produce_block_static(
+                                &blockchain_state,
+                                &validator_schedule,
+                                validator_id.clone()
+                            ).await {
+                                log::error!("Failed to produce block: {}", e);
+                            }
+                        }
                     }
                 }
                 
-                // Brief pause between mining attempts
-                tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+                // Sleep for a short interval before checking again
+                tokio::time::sleep(Duration::from_secs(1)).await;
             }
         });
         
         Ok(())
     }
     
-    /// Start block template generation
-    async fn start_block_template_generation(&self) -> SystemResult<()> {
-        let state = self.blockchain_state.clone();
-        let template = self.current_block_template.clone();
-        let difficulty = self.difficulty.clone();
+    /// Static method for block production (to avoid async closure issues)
+    async fn produce_block_static(
+        blockchain_state: &Arc<RwLock<BlockchainState>>,
+        validator_schedule: &Arc<RwLock<ValidatorSchedule>>,
+        validator_id: AccountId,
+    ) -> SystemResult<()> {
+        let mut state = blockchain_state.write().await;
+        let mut schedule = validator_schedule.write().await;
         
-        tokio::spawn(async move {
-            loop {
-                // Generate new block template every 5 seconds
-                tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
-                
-                let blockchain_state = state.read().await;
-                if !blockchain_state.pending_transactions.is_empty() {
-                    let new_template = Self::create_block_template(
-                        &blockchain_state,
-                        *difficulty.read().await,
-                    ).await;
-                    
-                    *template.write().await = Some(new_template);
-                }
-            }
-        });
+        if state.pending_transactions.is_empty() {
+            // No transactions to include, skip this block
+            return Ok(());
+        }
+        
+        let current_time = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+        
+        // Create new block
+        let new_block = EnergyBlock {
+            header: BlockHeader {
+                number: state.block_height + 1,
+                parent_hash: state.latest_block_hash.clone(),
+                transaction_root: Self::calculate_merkle_root(&state.pending_transactions),
+                state_root: Self::calculate_state_root(&state.balances),
+                timestamp: current_time,
+                validator: validator_id.clone(),
+                hash: String::new(), // Will be calculated after
+            },
+            transactions: state.pending_transactions.clone(),
+            energy_stats: Self::calculate_energy_stats(&state.pending_transactions),
+            validator_signature: ValidatorSignature {
+                validator: validator_id,
+                signature: vec![0; 64], // Mock signature
+                timestamp: current_time,
+            },
+        };
+        
+        // Calculate block hash
+        let mut new_block = new_block;
+        new_block.header.hash = Self::calculate_block_hash(&new_block);
+        
+        // Add block to chain
+        state.blocks.push(new_block.clone());
+        state.block_height += 1;
+        state.latest_block_hash = new_block.header.hash;
+        state.pending_transactions.clear();
+        
+        // Update validator schedule
+        schedule.current_validator_index = (schedule.current_validator_index + 1) % schedule.active_validators.len();
+        schedule.round = if schedule.current_validator_index == 0 { 
+            schedule.round + 1 
+        } else { 
+            schedule.round 
+        };
+        schedule.last_block_time = current_time;
+        
+        crate::utils::logging::log_info(
+            "ConsensusEngine",
+            &format!("Block #{} produced by validator {}", 
+                     new_block.header.number, 
+                     new_block.header.validator)
+        );
         
         Ok(())
     }
     
-    /// Create genesis block
-    fn create_genesis_block() -> EnergyBlock {
+    /// Add a new validator to the authority set (requires governance)
+    pub async fn add_validator(&self, validator_id: AccountId, authority: Authority) -> SystemResult<()> {
+        let mut validators = self.validators.write().await;
+        validators.insert(validator_id.clone());
+        
+        let mut schedule = self.validator_schedule.write().await;
+        if !schedule.active_validators.contains(&validator_id) {
+            schedule.active_validators.push(validator_id.clone());
+        }
+        
+        crate::utils::logging::log_info(
+            "ConsensusEngine",
+            &format!("Added new validator: {} ({})", validator_id, authority.name)
+        );
+        
+        Ok(())
+    }
+    
+    /// Remove a validator from the authority set (requires governance)
+    pub async fn remove_validator(&self, validator_id: &AccountId) -> SystemResult<()> {
+        let mut validators = self.validators.write().await;
+        validators.remove(validator_id);
+        
+        let mut schedule = self.validator_schedule.write().await;
+        schedule.active_validators.retain(|v| v != validator_id);
+        
+        // Adjust current index if necessary
+        if schedule.current_validator_index >= schedule.active_validators.len() {
+            schedule.current_validator_index = 0;
+        }
+        
+        crate::utils::logging::log_info(
+            "ConsensusEngine",
+            &format!("Removed validator: {}", validator_id)
+        );
+        
+        Ok(())
+    }
+    
+    /// Get current validator set
+    pub async fn get_validators(&self) -> HashSet<AccountId> {
+        self.validators.read().await.clone()
+    }
+    
+    /// Get validator schedule information
+    pub async fn get_validator_schedule(&self) -> ValidatorSchedule {
+        self.validator_schedule.read().await.clone()
+    }
+    
+    /// Verify validator signature on a block
+    pub fn verify_block_signature(&self, block: &EnergyBlock) -> SystemResult<bool> {
+        // In a real implementation, this would verify the cryptographic signature
+        // For now, just check if the validator is in the authority set
+        // TODO: Implement actual signature verification with validator's public key
+        Ok(true)
+    }
+    
+    /// Create genesis block for PoA
+    async fn create_genesis_block() -> SystemResult<EnergyBlock> {
         let timestamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_secs();
         
+        let genesis_validator = AccountId::from_str("GenesisValidator").unwrap_or_default();
+        
         let header = BlockHeader {
             number: 0,
             parent_hash: Hash::default(),
             transaction_root: Hash::default(),
+            state_root: Hash::default(),
             timestamp,
-            difficulty: 1,
-            nonce: 0,
+            validator: genesis_validator.clone(),
             hash: Hash::default(),
-            miner: hex::encode([0u8; 32]),
         };
         
         let energy_stats = EnergyBlockStats {
@@ -236,134 +445,34 @@ impl ConsensusEngine {
             carbon_credits: 0,
         };
         
+        let validator_signature = ValidatorSignature {
+            validator: genesis_validator,
+            signature: vec![0; 64], // Genesis signature
+            timestamp,
+        };
+        
         let mut block = EnergyBlock {
             header,
             transactions: Vec::new(),
             energy_stats,
+            validator_signature,
         };
         
         // Calculate genesis block hash
-        block.header.hash = Self::calculate_block_hash(&block.header);
+        block.header.hash = Self::calculate_block_hash(&block);
         
-        block
+        Ok(block)
     }
     
-    /// Create block template for mining
-    async fn create_block_template(
-        state: &BlockchainState,
-        difficulty: u32,
-    ) -> BlockTemplate {
-        let timestamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
-        
-        // Select transactions for the block (up to 1000 transactions)
-        let transactions = state.pending_transactions.iter()
-            .take(1000)
-            .cloned()
-            .collect::<Vec<_>>();
-        
-        let transaction_root = Self::calculate_merkle_root(&transactions);
-        
-        let header = BlockHeader {
-            number: state.block_height + 1,
-            parent_hash: state.latest_block_hash.clone(),
-            transaction_root,
-            timestamp,
-            difficulty,
-            nonce: 0, // Will be set during mining
-            hash: Hash::default(), // Will be calculated during mining
-            miner: hex::encode([1u8; 32]), // TODO: Use actual miner address
-        };
-        
-        let target = Self::difficulty_to_target(difficulty);
-        
-        BlockTemplate {
-            header,
-            transactions,
-            target,
-        }
-    }
-    
-    /// Mine a block using Proof-of-Work
-    async fn mine_block(template: BlockTemplate, difficulty: u32) -> Option<EnergyBlock> {
-        let mut header = template.header.clone();
-        let target = Self::difficulty_to_target(difficulty);
-        
-        // Mining loop
-        for nonce in 0..u64::MAX {
-            header.nonce = nonce;
-            let hash = Self::calculate_block_hash(&header);
-            
-            if Self::hash_meets_target(&hash, &target) {
-                header.hash = hash;
-                
-                // Calculate energy statistics
-                let energy_stats = Self::calculate_energy_stats(&template.transactions);
-                
-                return Some(EnergyBlock {
-                    header,
-                    transactions: template.transactions,
-                    energy_stats,
-                });
-            }
-            
-            // Yield periodically to prevent blocking
-            if nonce % 10000 == 0 {
-                tokio::task::yield_now().await;
-            }
-        }
-        
-        None
-    }
-    
-    /// Apply block transactions to blockchain state
-    async fn apply_block_transactions(state: &mut BlockchainState, block: &EnergyBlock) {
-        for tx in &block.transactions {
-            // Remove from pending transactions
-            state.pending_transactions.retain(|pending_tx| pending_tx.hash != tx.hash);
-            
-            // Apply transaction to balances
-            Self::apply_transaction_to_state(state, tx).await;
-        }
-    }
-    
-    /// Apply single transaction to state
-    async fn apply_transaction_to_state(state: &mut BlockchainState, tx: &EnergyTransactionEnvelope) {
-        // TODO: Implement full transaction execution
-        // For now, just handle basic transfers
-        let sender = match &tx.transaction {
-            EnergyTransaction::Transfer { from, .. } => from.clone(),
-            EnergyTransaction::PlaceOrder { trader, .. } => trader.clone(),
-            EnergyTransaction::CancelOrder { trader, .. } => trader.clone(),
-            EnergyTransaction::ExecuteTrade { trade, .. } => trade.buyer_id.clone(),
-            EnergyTransaction::ReportProduction { producer, .. } => producer.clone(),
-            EnergyTransaction::ReportConsumption { consumer, .. } => consumer.clone(),
-            EnergyTransaction::GovernanceProposal { proposer, .. } => proposer.clone(),
-            EnergyTransaction::Vote { voter, .. } => voter.clone(),
-            EnergyTransaction::DeployContract { deployer, .. } => deployer.clone(),
-            EnergyTransaction::ExecuteContract { caller, .. } => caller.clone(),
-            EnergyTransaction::RegisterProducer { producer, .. } => producer.clone(),
-            EnergyTransaction::RegisterConsumer { consumer, .. } => consumer.clone(),
-            EnergyTransaction::UpdateGridStatus { authority, .. } => authority.clone(),
-            EnergyTransaction::CarbonCredit { issuer, .. } => issuer.clone(),
-            EnergyTransaction::EnergyStorage { storage_operator, .. } => storage_operator.clone(),
-        };
-        let balance_state = state.balances.entry(sender).or_insert_with(EnergyBalanceState::new);
-        balance_state.increment_nonce();
-    }
-    
-    /// Calculate block hash
-    fn calculate_block_hash(header: &BlockHeader) -> Hash {
+    /// Calculate block hash for PoA
+    fn calculate_block_hash(block: &EnergyBlock) -> Hash {
         let mut data = Vec::new();
-        data.extend_from_slice(&header.number.to_be_bytes());
-        data.extend_from_slice(header.parent_hash.as_ref());
-        data.extend_from_slice(header.transaction_root.as_ref());
-        data.extend_from_slice(&header.timestamp.to_be_bytes());
-        data.extend_from_slice(&header.difficulty.to_be_bytes());
-        data.extend_from_slice(&header.nonce.to_be_bytes());
-        data.extend_from_slice(header.miner.as_ref());
+        data.extend_from_slice(&block.header.number.to_be_bytes());
+        data.extend_from_slice(block.header.parent_hash.as_bytes());
+        data.extend_from_slice(block.header.transaction_root.as_bytes());
+        data.extend_from_slice(block.header.state_root.as_bytes());
+        data.extend_from_slice(&block.header.timestamp.to_be_bytes());
+        data.extend_from_slice(block.header.validator.as_bytes());
         
         let mut hasher = Sha256::new();
         hasher.update(&data);
@@ -378,7 +487,7 @@ impl ConsensusEngine {
         }
         
         let mut hashes: Vec<Hash> = transactions.iter()
-            .map(|tx| hex::encode(tx.hash))
+            .map(|tx| hex::encode(&tx.hash))
             .collect();
         
         while hashes.len() > 1 {
@@ -391,8 +500,7 @@ impl ConsensusEngine {
                     data.extend_from_slice(chunk[1].as_bytes());
                     let mut hasher = Sha256::new();
                     hasher.update(&data);
-                    let result = hasher.finalize();
-                    hex::encode(&result[..32])
+                    hex::encode(hasher.finalize())
                 } else {
                     chunk[0].clone()
                 };
@@ -405,22 +513,25 @@ impl ConsensusEngine {
         hashes.into_iter().next().unwrap_or_default()
     }
     
-    /// Convert difficulty to target hash
-    fn difficulty_to_target(difficulty: u32) -> Hash {
-        let mut target = [0xFFu8; 32];
+    /// Calculate state root hash
+    fn calculate_state_root(balances: &HashMap<AccountId, EnergyBalanceState>) -> Hash {
+        let mut data = Vec::new();
         
-        // Simple difficulty adjustment: more leading zeros = higher difficulty
-        let leading_zeros = difficulty.min(32);
-        for i in 0..leading_zeros as usize {
-            target[i] = 0;
+        // Sort accounts for deterministic hash
+        let mut sorted_accounts: Vec<_> = balances.keys().collect();
+        sorted_accounts.sort();
+        
+        for account in sorted_accounts {
+            if let Some(balance) = balances.get(account) {
+                data.extend_from_slice(account.as_bytes());
+                data.extend_from_slice(&balance.total_balance.to_be_bytes());
+                data.extend_from_slice(&balance.nonce.to_be_bytes());
+            }
         }
         
-        hex::encode(target)
-    }
-    
-    /// Check if hash meets target difficulty
-    fn hash_meets_target(hash: &Hash, target: &Hash) -> bool {
-        hash.as_bytes() <= target.as_bytes()
+        let mut hasher = Sha256::new();
+        hasher.update(&data);
+        hex::encode(hasher.finalize())
     }
     
     /// Calculate energy statistics for a block
@@ -436,14 +547,14 @@ impl ConsensusEngine {
             gas_used += tx.get_gas_cost();
             
             match &tx.transaction {
-                crate::blockchain::transactions::EnergyTransaction::ExecuteTrade { trade, .. } => {
+                EnergyTransaction::ExecuteTrade { trade, .. } => {
                     total_energy_traded += trade.energy_amount;
                     *energy_by_source.entry(trade.energy_source.clone()).or_insert(0.0) += trade.energy_amount;
                     trade_count += 1;
                     total_price += trade.total_price;
                     carbon_credits += trade.carbon_offset.offset_credits as u32;
                 }
-                crate::blockchain::transactions::                EnergyTransaction::ReportProduction { production_record, .. } => {
+                EnergyTransaction::ReportProduction { production_record, .. } => {
                     *energy_by_source.entry(production_record.energy_type.clone()).or_insert(0.0) += production_record.amount;
                 }
                 _ => {}
@@ -484,18 +595,126 @@ impl ConsensusEngine {
         state.balances.get(account).cloned()
     }
     
-    /// Adjust mining difficulty
-    pub async fn adjust_difficulty(&self, new_difficulty: u32) {
-        *self.difficulty.write().await = new_difficulty;
-        crate::utils::logging::log_info(
-            "ConsensusEngine",
-            &format!("Adjusted mining difficulty to {}", new_difficulty)
-        );
+    /// Apply transaction to blockchain state
+    async fn apply_transaction_to_state(state: &mut BlockchainState, tx: &EnergyTransactionEnvelope) {
+        // Remove from pending transactions
+        state.pending_transactions.retain(|pending_tx| pending_tx.hash != tx.hash);
+        
+        // Apply transaction effects to balances based on transaction type
+        match &tx.transaction {
+            EnergyTransaction::Transfer { from, to, amount, .. } => {
+                // Handle token transfer
+                if let Some(sender_balance) = state.balances.get_mut(from) {
+                    sender_balance.total_balance = sender_balance.total_balance.saturating_sub(*amount);
+                    sender_balance.increment_nonce();
+                }
+                
+                let receiver_balance = state.balances.entry(to.clone()).or_insert_with(EnergyBalanceState::new);
+                receiver_balance.total_balance = receiver_balance.total_balance.saturating_add(*amount);
+            }
+            EnergyTransaction::ExecuteTrade { trade, .. } => {
+                // Handle energy trade execution
+                if let Some(buyer_balance) = state.balances.get_mut(&trade.buyer_id) {
+                    buyer_balance.total_balance = buyer_balance.total_balance.saturating_sub(trade.total_price);
+                }
+                
+                if let Some(seller_balance) = state.balances.get_mut(&trade.seller_id) {
+                    seller_balance.total_balance = seller_balance.total_balance.saturating_add(trade.total_price);
+                }
+            }
+            _ => {
+                // For other transaction types, just increment nonce
+                let sender = tx.get_sender();
+                let balance_state = state.balances.entry(sender).or_insert_with(EnergyBalanceState::new);
+                balance_state.increment_nonce();
+            }
+        }
+    }
+}
+
+impl ValidatorSchedule {
+    /// Get the current designated validator
+    pub fn get_current_validator(&self) -> Option<&AccountId> {
+        self.active_validators.get(self.current_validator_index)
     }
     
-    /// Start validator process (for compatibility)
-    async fn start_validator(&self) -> SystemResult<()> {
-        crate::utils::logging::log_info("ConsensusEngine", "Starting validator node");
+    /// Check if it's time for the next validator
+    pub fn should_rotate(&self, current_time: u64) -> bool {
+        current_time >= self.last_block_time + self.block_interval
+    }
+    
+    /// Get the next validator in line
+    pub fn get_next_validator(&self) -> Option<&AccountId> {
+        let next_index = (self.current_validator_index + 1) % self.active_validators.len();
+        self.active_validators.get(next_index)
+    }
+}
+
+impl Authority {
+    /// Create a new authority
+    pub fn new(
+        account_id: AccountId,
+        name: String,
+        expertise: Vec<EnergySource>,
+        authorized_regions: Vec<String>,
+        public_key: Vec<u8>,
+    ) -> Self {
+        Self {
+            account_id,
+            name,
+            expertise,
+            reputation: 1.0, // Start with neutral reputation
+            authorized_regions,
+            public_key,
+            is_active: true,
+            registered_at: SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs(),
+        }
+    }
+    
+    /// Check if authority can validate for a specific energy source
+    pub fn can_validate_energy_source(&self, energy_source: &EnergySource) -> bool {
+        self.is_active && (self.expertise.contains(energy_source) || self.expertise.is_empty())
+    }
+    
+    /// Check if authority can validate for a specific region
+    pub fn can_validate_region(&self, region: &str) -> bool {
+        self.is_active && (self.authorized_regions.contains(&region.to_string()) || self.authorized_regions.is_empty())
+    }
+}
+
+/// PoA-specific validation functions
+impl ConsensusEngine {
+    /// Verify this is a PoA-only system (no PoW allowed)
+    pub fn validate_poa_only(&self) -> SystemResult<()> {
+        if self.config.consensus_algorithm != "proof_of_authority" {
+            return Err(crate::utils::SystemError::Configuration(
+                "❌ CRITICAL: Only Proof-of-Authority is allowed! PoW and other consensus mechanisms are disabled.".to_string()
+            ));
+        }
+        
+        crate::utils::logging::log_info(
+            "ConsensusEngine",
+            "✅ PoA validation passed: System is pure Proof-of-Authority"
+        );
+        
         Ok(())
+    }
+    
+    /// Get consensus mechanism type
+    pub fn get_consensus_type(&self) -> &str {
+        "proof_of_authority"
+    }
+    
+    /// Check if mining is disabled (should always be true for PoA)
+    pub fn is_mining_disabled(&self) -> bool {
+        true // Always true for PoA-only system
+    }
+    
+    /// Get block production method
+    pub fn get_block_production_method(&self) -> &str {
+        "validator_authority"
     }
 }

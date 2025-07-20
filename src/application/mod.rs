@@ -4,6 +4,7 @@
 //! Grid Management, Governance Service, and Oracle Service.
 
 pub mod trading;
+pub mod enhanced_trading;
 pub mod grid;
 pub mod governance;
 pub mod oracle;

@@ -1,6 +1,7 @@
 # Multi-stage build for Thai Energy Trading Blockchain
-# Stage 1: Build stage
-FROM rust:1.75-slim as builder
+
+# Stage 1: Builder stage
+FROM rust:1.82-slim as builder
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
@@ -10,10 +11,10 @@ RUN apt-get update && apt-get install -y \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# Set working directory
+# Create app directory
 WORKDIR /app
 
-# Copy Cargo files
+# Copy dependency files
 COPY Cargo.toml Cargo.lock ./
 
 # Copy source code
@@ -58,5 +59,5 @@ EXPOSE 8080 9090 9944
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD ./thai-energy-trading-blockchain --health-check || exit 1
 
-# Run the application
+# Start the application
 CMD ["./thai-energy-trading-blockchain"]

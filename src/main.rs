@@ -18,6 +18,8 @@ async fn main() -> Result<()> {
     info!("🇹🇭 Thai Energy Trading Blockchain v{}", env!("CARGO_PKG_VERSION"));
     info!("⚡ Blockchain-based peer-to-peer energy trading platform");
     info!("💰 1 kWh = 1 Token | Sustainable • Transparent • Decentralized");
+    info!("🏛️ Consensus: Proof-of-Authority (PoA) - No mining required");
+    info!("🔐 Energy-focused blockchain with Thai grid integration");
     
     // Load configuration
     let config = SystemConfig::load().await?;

@@ -7,6 +7,8 @@ pub mod token_system;
 pub mod energy_trading;
 pub mod compliance;
 pub mod hybrid_arch;
+pub mod continuous_double_auction;
+pub mod cda;
 
 use crate::config::SystemConfig;
 use crate::utils::SystemResult;

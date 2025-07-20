@@ -30,7 +30,7 @@ pub struct DatabaseConfig {
     pub redis_max_connections: u32,
 }
 
-/// Blockchain configuration
+/// Blockchain configuration (Proof-of-Authority only)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BlockchainConfig {
     pub network: String,
@@ -41,10 +41,16 @@ pub struct BlockchainConfig {
     pub ws_port: u16,
     pub p2p_port: u16,
     pub chain_spec: String,
-    /// Enable mining for Proof-of-Work
-    pub enable_mining: bool,
-    /// Mining difficulty
-    pub mining_difficulty: u32,
+    /// Consensus algorithm (always PoA)
+    pub consensus_algorithm: String,
+    /// Block production time in seconds
+    pub block_time: u64,
+    /// Validator rotation interval in blocks
+    pub validator_rotation_interval: u64,
+    /// Maximum number of validators
+    pub max_validators: u32,
+    /// Authority threshold for consensus
+    pub authority_threshold: u32,
     /// Gas limit for transactions
     pub gas_limit: u64,
     /// Gas price in tokens
@@ -190,6 +196,31 @@ impl SystemConfig {
             return Err(anyhow::anyhow!("Blockchain network cannot be empty"));
         }
         
+        // Validate PoA-only configuration
+        if self.blockchain.consensus_algorithm != "proof_of_authority" {
+            return Err(anyhow::anyhow!(
+                "Only Proof-of-Authority consensus is supported. Found: {}", 
+                self.blockchain.consensus_algorithm
+            ));
+        }
+        
+        // Validate PoA-specific parameters
+        if self.blockchain.block_time == 0 {
+            return Err(anyhow::anyhow!("Block time must be greater than 0 seconds"));
+        }
+        
+        if self.blockchain.max_validators == 0 {
+            return Err(anyhow::anyhow!("Max validators must be greater than 0"));
+        }
+        
+        if self.blockchain.authority_threshold == 0 || 
+           self.blockchain.authority_threshold > self.blockchain.max_validators {
+            return Err(anyhow::anyhow!(
+                "Authority threshold must be between 1 and max validators ({})", 
+                self.blockchain.max_validators
+            ));
+        }
+        
         // Validate API configuration
         // if self.api.port < 1024 || self.api.port > 65535 {
         //     return Err(anyhow::anyhow!("API port must be between 1024 and 65535"));
@@ -256,11 +287,20 @@ impl BlockchainConfig {
             chain_spec: env::var("BLOCKCHAIN_CHAIN_SPEC").unwrap_or_else(|_| 
                 "thai-energy-testnet.json".to_string()
             ),
-            enable_mining: env::var("BLOCKCHAIN_ENABLE_MINING")
-                .unwrap_or_else(|_| "true".to_string())
+            consensus_algorithm: env::var("CONSENSUS_ALGORITHM").unwrap_or_else(|_| 
+                "proof_of_authority".to_string()
+            ),
+            block_time: env::var("BLOCK_TIME")
+                .unwrap_or_else(|_| "5".to_string())
                 .parse()?,
-            mining_difficulty: env::var("BLOCKCHAIN_MINING_DIFFICULTY")
-                .unwrap_or_else(|_| "1".to_string())
+            validator_rotation_interval: env::var("VALIDATOR_ROTATION_INTERVAL")
+                .unwrap_or_else(|_| "15".to_string())
+                .parse()?,
+            max_validators: env::var("MAX_VALIDATORS")
+                .unwrap_or_else(|_| "21".to_string())
+                .parse()?,
+            authority_threshold: env::var("AUTHORITY_THRESHOLD")
+                .unwrap_or_else(|_| "3".to_string())
                 .parse()?,
             gas_limit: env::var("BLOCKCHAIN_GAS_LIMIT")
                 .unwrap_or_else(|_| "1000000".to_string())

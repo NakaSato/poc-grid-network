@@ -2,12 +2,13 @@
 
 [blockchain]
 network = "production"
-consensus_algorithm = "proof_of_work"
-block_time = 30
-difficulty_adjustment = true
+consensus_algorithm = "proof_of_authority"
+block_time = 5
+validator_rotation_interval = 15
 max_block_size = 1048576
 mempool_size = 10000
 min_gas_price = 1000
+authority_threshold = 3
 
 [api]
 host = "0.0.0.0"
@@ -39,3 +40,13 @@ max_order_size = 1000000
 min_order_size = 1
 default_gas_limit = 100000
 trading_fee_percentage = 0.5
+
+[validators]
+# Authority validators for Thai Energy Trading
+authority_validators = [
+    { account_id = "ThaiEnergyAuthority", name = "Thailand Energy Regulatory Authority", expertise = ["Solar", "Wind", "Hydro"], regions = ["Bangkok", "Northern", "Southern"] },
+    { account_id = "GridAuthorityThailand", name = "Thai Grid Operations Authority", expertise = ["Solar", "Wind", "Hydro", "Thermal"], regions = ["Central", "Eastern", "Western"] },
+    { account_id = "RenewableEnergyAuth", name = "Thai Renewable Energy Authority", expertise = ["Solar", "Wind", "Biomass"], regions = ["Northeastern", "Southern", "Central"] },
+    { account_id = "ProvinceEnergyCouncil", name = "Provincial Energy Councils", expertise = ["Hydro", "Biomass"], regions = ["Rural", "Remote"] }
+]
+initial_validators = ["ThaiEnergyAuthority", "GridAuthorityThailand", "RenewableEnergyAuth"]

@@ -50,9 +50,16 @@ dotenv = "0.15"
 # Networking
 libp2p = "0.56.0"
 
+# HTTP server for CDA API
+warp = "0.3"
+futures-util = "0.3"
+
 # Async utilities
 futures = "0.3"
 async-trait = "0.1"
+
+# Force compatible versions to avoid edition2024 features
+base64ct = "1.6"  # Use older version that doesn't require edition2024
 
 [dev-dependencies]
 tokio-test = "0.4"

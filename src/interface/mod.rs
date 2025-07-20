@@ -4,6 +4,7 @@
 //! Focused on direct blockchain interactions without HTTP/REST API layers.
 
 pub mod api;
+pub mod cda_api;
 
 use crate::application::*;
 use crate::infrastructure::security::SecurityManager;

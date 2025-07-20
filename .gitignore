@@ -1,1 +1,51 @@
+# Rust build artifacts
 /target
+debug/
+release/
+**/*.rs.bk
+*.pdb
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Environment files (keep .env.example)
+.env.local
+.env.development
+.env.test
+*.key
+*.pem
+
+# Logs
+*.log
+logs/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.temp
+
+# OS generated files
+.DS_Store?
+ehthumbs.db
+Thumbs.db
+
+# Backup files
+*_backup.*
+*.backup
+*.bak
+*.orig
+
+# Documentation build artifacts
+docs/site/
+docs/_build/
