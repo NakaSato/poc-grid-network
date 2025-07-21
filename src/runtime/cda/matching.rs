@@ -133,7 +133,7 @@ impl MatchingEngine {
         let grid_location = GridLocation {
             province: "Bangkok".to_string(),
             district: "Pathum Wan".to_string(),
-            coordinates: (13.7563, 100.5018),
+            coordinates: GridCoordinates { lat: 13.7563, lng: 100.5018 },
             region: "Central".to_string(),
             substation: "Default".to_string(),
             grid_code: "DEFAULT".to_string(),

@@ -277,6 +277,40 @@ impl TradingService {
         // Monitor and manage risks
         Ok(())
     }
+    
+    /// Submit energy order for TPS testing
+    pub async fn submit_energy_order(&self, order: EnergyOrder) -> SystemResult<()> {
+        // Simulate order processing for TPS tests
+        let _order_id = self.place_order(order).await?;
+        Ok(())
+    }
+    
+    /// Process transfer for TPS testing  
+    pub async fn process_transfer(&self, transfer: TokenTransfer) -> SystemResult<()> {
+        // Simulate token transfer processing
+        // In a real implementation, this would validate balances and update accounts
+        tokio::time::sleep(tokio::time::Duration::from_millis(10)).await; // Simulate processing time
+        Ok(())
+    }
+}
+
+/// Token transfer structure for TPS testing
+#[derive(Debug, Clone)]
+pub struct TokenTransfer {
+    pub from_account: String,
+    pub to_account: String,
+    pub amount: u128,
+    pub transfer_type: TransferType,
+    pub timestamp: chrono::DateTime<chrono::Utc>,
+    pub transaction_id: String,
+}
+
+/// Transfer type enumeration
+#[derive(Debug, Clone)]
+pub enum TransferType {
+    EnergyPayment,
+    GridFee,
+    EnergyTrade,
 }
 
 // Implement Clone for async tasks

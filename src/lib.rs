@@ -39,6 +39,8 @@ pub mod interface;
 pub mod config;
 pub mod types;
 pub mod utils;
+pub mod tps_test;
+pub mod tps_benchmark;
 
 // Re-export commonly used types and functions
 pub use config::SystemConfig;
@@ -250,6 +252,37 @@ impl ThaiEnergyTradingSystem {
         
         self.governance_service.vote_on_proposal(*proposal_id, account_id, gov_vote, voting_power).await
             .map_err(|e| anyhow::anyhow!("Failed to vote on proposal: {}", e))
+    }
+    
+    /// Get system status for TPS monitoring
+    pub async fn get_system_status(&self) -> Result<SystemStatus> {
+        let _blockchain_status = self.get_blockchain_status().await?;
+        
+        // Get memory usage (simplified)
+        let memory_usage_kb = 1024; // Placeholder - would use actual memory monitoring
+        
+        Ok(SystemStatus {
+            memory_usage_kb,
+            active_connections: 10, // Placeholder
+            cache_hit_rate: 85.0, // Placeholder
+            current_block_height: 1000, // Placeholder
+            pending_transactions: 5, // Placeholder
+        })
+    }
+    
+    /// Get trading service for TPS testing
+    pub fn get_trading_service(&self) -> Arc<TradingService> {
+        self.trading_service.clone()
+    }
+    
+    /// Get token service for TPS testing (placeholder)
+    pub fn get_token_service(&self) -> Arc<TradingService> {
+        self.trading_service.clone() // Using trading service as placeholder for now
+    }
+    
+    /// Get governance service for TPS testing
+    pub fn get_governance_service(&self) -> Arc<GovernanceService> {
+        self.governance_service.clone()
     }
 }
 

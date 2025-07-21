@@ -237,7 +237,7 @@ fn test_grid_location() {
     let location = GridLocation {
         province: "Chiang Mai".to_string(),
         district: "Muang".to_string(),
-        coordinates: (18.7883, 98.9853),
+        coordinates: GridCoordinates { lat: 18.7883, lng: 98.9853 },
         region: "North".to_string(),
         substation: "CM-Central".to_string(),
         grid_code: "CM-001".to_string(),
@@ -247,8 +247,8 @@ fn test_grid_location() {
     assert_eq!(location.province, "Chiang Mai");
     assert_eq!(location.district, "Muang");
     assert_eq!(location.region, "North");
-    assert_eq!(location.coordinates.0, 18.7883);
-    assert_eq!(location.coordinates.1, 98.9853);
+    assert_eq!(location.coordinates.lat, 18.7883);
+    assert_eq!(location.coordinates.lng, 98.9853);
 }
 
 #[test]

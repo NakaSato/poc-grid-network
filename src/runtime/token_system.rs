@@ -384,7 +384,7 @@ impl TokenSystem {
             location: GridLocation {
                 province: "default".to_string(),
                 district: "default".to_string(),
-                coordinates: (0.0, 0.0),
+                coordinates: GridCoordinates { lat: 0.0, lng: 0.0 },
                 region: "default".to_string(),
                 substation: "default".to_string(),
                 grid_code: "default".to_string(),
@@ -412,7 +412,7 @@ impl TokenSystem {
             location: GridLocation {
                 province: "default".to_string(),
                 district: "default".to_string(),
-                coordinates: (0.0, 0.0),
+                coordinates: GridCoordinates { lat: 0.0, lng: 0.0 },
                 region: "default".to_string(),
                 substation: "default".to_string(),
                 grid_code: "default".to_string(),

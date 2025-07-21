@@ -46,9 +46,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 OrderBookEvent::OrderCancelled(order_id) => {
                     println!("❌ Order cancelled: {}", order_id);
                 }
-                OrderBookEvent::PriceUpdate(bid, ask) => {
-                    println!("💰 Price update: Bid {} THB/kWh, Ask {} THB/kWh, Spread {} THB", 
-                             bid, ask, ask - bid);
+                OrderBookEvent::MarketDepthUpdate(depth) => {
+                    println!("� Market depth update: {:?}", depth);
                 }
                 _ => {}
             }
@@ -87,7 +86,7 @@ async fn demo_scenario_1(trading_service: &Arc<EnhancedTradingService>) -> Resul
     let bangkok_location = GridLocation {
         province: "Bangkok".to_string(),
         district: "Chatuchak".to_string(),
-        coordinates: (13.7563, 100.5018),
+        coordinates: GridCoordinates { lat: 13.7563, lng: 100.5018 },
         region: "Central".to_string(),
         substation: "BKK-SUB-001".to_string(),
         grid_code: "BKK001".to_string(),
@@ -153,7 +152,7 @@ async fn demo_scenario_2(trading_service: &Arc<EnhancedTradingService>) -> Resul
     let chiang_mai_location = GridLocation {
         province: "Chiang Mai".to_string(),
         district: "Mueang".to_string(),
-        coordinates: (18.7883, 98.9853),
+        coordinates: GridCoordinates { lat: 18.7883, lng: 98.9853 },
         region: "Northern".to_string(),
         substation: "CNX-SUB-001".to_string(),
         grid_code: "CNX001".to_string(),
@@ -229,7 +228,7 @@ async fn demo_scenario_3(trading_service: &Arc<EnhancedTradingService>) -> Resul
     let phuket_location = GridLocation {
         province: "Phuket".to_string(),
         district: "Mueang".to_string(),
-        coordinates: (7.8804, 98.3923),
+        coordinates: GridCoordinates { lat: 7.8804, lng: 98.3923 },
         region: "Southern".to_string(),
         substation: "HKT-SUB-001".to_string(),
         grid_code: "HKT001".to_string(),
@@ -329,7 +328,7 @@ fn create_grid_location(province: &str, district: &str, lat: f64, lng: f64) -> G
     GridLocation {
         province: province.to_string(),
         district: district.to_string(),
-        coordinates: (lat, lng),
+        coordinates: GridCoordinates { lat, lng },
         region: match province {
             "Bangkok" | "Nonthaburi" | "Pathum Thani" => "Central",
             "Chiang Mai" | "Chiang Rai" => "Northern",

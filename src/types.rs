@@ -70,7 +70,7 @@ pub struct GridLocation {
     /// District
     pub district: String,
     /// Grid coordinates
-    pub coordinates: (f64, f64),
+    pub coordinates: GridCoordinates,
     /// Region identifier
     pub region: String,
     /// Substation identifier
@@ -79,6 +79,13 @@ pub struct GridLocation {
     pub grid_code: String,
     /// Meter ID
     pub meter_id: String,
+}
+
+/// Grid coordinates structure
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct GridCoordinates {
+    pub lat: f64,
+    pub lng: f64,
 }
 
 impl Eq for GridLocation {}
@@ -91,9 +98,9 @@ impl std::hash::Hash for GridLocation {
         self.substation.hash(state);
         self.grid_code.hash(state);
         self.meter_id.hash(state);
-        // Hash coordinates as ordered bytes to handle f64
-        self.coordinates.0.to_bits().hash(state);
-        self.coordinates.1.to_bits().hash(state);
+        // Hash coordinately as ordered bytes to handle f64
+        self.coordinates.lat.to_bits().hash(state);
+        self.coordinates.lng.to_bits().hash(state);
     }
 }
 
@@ -521,4 +528,19 @@ pub struct EnergyToken {
     pub expires_at: DateTime<Utc>,
     /// Verification status
     pub verified: bool,
+}
+
+/// System status for monitoring and TPS testing
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SystemStatus {
+    /// Memory usage in KB
+    pub memory_usage_kb: u64,
+    /// Active database connections
+    pub active_connections: u32,
+    /// Cache hit rate percentage
+    pub cache_hit_rate: f64,
+    /// Current blockchain height
+    pub current_block_height: u64,
+    /// Number of pending transactions
+    pub pending_transactions: u32,
 }

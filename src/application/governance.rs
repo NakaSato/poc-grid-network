@@ -184,6 +184,31 @@ impl GovernanceService {
         // Process governance activities
         Ok(())
     }
+    
+    /// Cast vote for TPS testing
+    pub async fn cast_vote(&self, vote: GovernanceVote) -> SystemResult<()> {
+        // Simulate vote processing for TPS tests
+        tokio::time::sleep(tokio::time::Duration::from_millis(5)).await; // Simulate processing time
+        Ok(())
+    }
+}
+
+/// Governance vote structure for TPS testing
+#[derive(Debug, Clone)]
+pub struct GovernanceVote {
+    pub proposal_id: String,
+    pub voter_id: String,
+    pub vote: VoteType,
+    pub voting_power: u64,
+    pub timestamp: chrono::DateTime<chrono::Utc>,
+}
+
+/// Vote type enumeration
+#[derive(Debug, Clone)]
+pub enum VoteType {
+    Approve,
+    Reject,
+    Abstain,
 }
 
 /// Vote choice enum

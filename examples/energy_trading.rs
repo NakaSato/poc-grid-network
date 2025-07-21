@@ -4,9 +4,9 @@
 //! and manage energy orders.
 
 use thai_energy_trading_blockchain::{
-    ThaiEnergyTradingSystem, 
-    SystemConfig,
-    types::{EnergyOrder, OrderType, EnergySource, GridLocation, OrderStatus},
+    application::trading::{TradingService, TokenTransfer, TransferType},
+    types::{EnergyOrder, OrderType, EnergySource, GridLocation, GridCoordinates, OrderStatus, AccountId, EnergyAmount, Balance},
+    SystemConfig, ThaiEnergyTradingSystem, SystemResult
 };
 use uuid::Uuid;
 use chrono::Utc;
@@ -28,7 +28,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let location = GridLocation {
         province: "Bangkok".to_string(),
         district: "Pathum Wan".to_string(),
-        coordinates: (13.7563, 100.5018),
+        coordinates: GridCoordinates { lat: 13.7563, lng: 100.5018 },
         region: "Central".to_string(),
         substation: "Siam".to_string(),
         grid_code: "BKK001".to_string(),

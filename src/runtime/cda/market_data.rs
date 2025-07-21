@@ -68,7 +68,7 @@ impl MarketDataManager {
         let default_location = GridLocation {
             province: "Default".to_string(),
             district: "Default".to_string(),
-            coordinates: (0.0, 0.0),
+            coordinates: GridCoordinates { lat: 0.0, lng: 0.0 },
             region: "Default".to_string(),
             substation: "Default".to_string(),
             grid_code: "DEFAULT".to_string(),

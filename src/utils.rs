@@ -108,8 +108,8 @@ pub mod validation {
         !location.district.is_empty() &&
         !location.substation.is_empty() &&
         !location.grid_code.is_empty() &&
-        location.coordinates.0 >= -90.0 && location.coordinates.0 <= 90.0 &&
-        location.coordinates.1 >= -180.0 && location.coordinates.1 <= 180.0
+        location.coordinates.lat >= -90.0 && location.coordinates.lat <= 90.0 &&
+        location.coordinates.lng >= -180.0 && location.coordinates.lng <= 180.0
     }
     
     /// Validate account ID format
@@ -374,8 +374,18 @@ pub mod error {
         #[error("Internal error: {0}")]
         Internal(String),
         
+        #[error("Invalid order: {0}")]
+        InvalidOrder(String),
+        
         #[error("IO error: {0}")]
         Io(#[from] std::io::Error),
+    }
+    
+    // Add From<anyhow::Error> implementation for TPS testing
+    impl From<anyhow::Error> for SystemError {
+        fn from(err: anyhow::Error) -> Self {
+            SystemError::Internal(err.to_string())
+        }
     }
     
     /// Result type alias for system operations
@@ -390,6 +400,7 @@ pub mod error {
 /// Testing utilities
 pub mod testing {
     use super::*;
+    use crate::types::GridCoordinates;
     
     /// Create a test account ID
     pub fn create_test_account_id() -> AccountId {
@@ -403,7 +414,7 @@ pub mod testing {
             district: "Pathum Wan".to_string(),
             substation: "Siam".to_string(),
             grid_code: "BKK-001".to_string(),
-            coordinates: (13.7463, 100.5352),
+            coordinates: GridCoordinates { lat: 13.7463, lng: 100.5352 },
             region: "Central".to_string(),
             meter_id: "METER-001".to_string(),
         }
