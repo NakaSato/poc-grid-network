@@ -36,6 +36,8 @@ pub mod runtime;
 pub mod application;
 pub mod infrastructure;
 pub mod interface;
+pub mod bridge; // New API bridge module
+pub mod crypto; // Cryptographic key management
 pub mod config;
 pub mod types;
 pub mod utils;
@@ -46,6 +48,7 @@ pub mod tps_benchmark;
 pub use config::SystemConfig;
 pub use types::*;
 pub use utils::{SystemResult, SystemError};
+pub use crypto::{GridTokenXKeyPair, AccountManager, TransactionSignature};
 
 use crate::infrastructure::database::DatabaseManager;
 use crate::infrastructure::grid::GridManager;
@@ -56,6 +59,7 @@ use crate::application::governance::GovernanceService;
 use crate::application::oracle::OracleService;
 use crate::interface::api::{BlockchainInterface, BlockchainStatus};
 use crate::blockchain::node::BlockchainNode;
+use crate::bridge::{ApiBridge, BridgeConfig}; // Import API bridge
 
 /// Main blockchain system context that holds all system components
 /// This is the primary entry point for using the Thai Energy Trading Blockchain library
@@ -70,6 +74,7 @@ pub struct ThaiEnergyTradingSystem {
     governance_service: Arc<GovernanceService>,
     oracle_service: Arc<OracleService>,
     blockchain_interface: Arc<BlockchainInterface>,
+    api_bridge: Option<Arc<ApiBridge>>, // Optional API bridge
 }
 
 impl ThaiEnergyTradingSystem {
@@ -111,6 +116,7 @@ impl ThaiEnergyTradingSystem {
             governance_service,
             oracle_service,
             blockchain_interface,
+            api_bridge: None, // Initialize without API bridge
         })
     }
     
@@ -196,6 +202,47 @@ impl ThaiEnergyTradingSystem {
         self.oracle_service.clone()
     }
     
+    /// Get API bridge reference (if enabled)
+    pub fn api_bridge(&self) -> Option<Arc<ApiBridge>> {
+        self.api_bridge.clone()
+    }
+    
+    /// Enable API bridge for public access
+    pub async fn enable_api_bridge(&mut self, bridge_config: BridgeConfig) -> Result<()> {
+        let bridge = Arc::new(ApiBridge::new(
+            Arc::new(self.clone_without_bridge()), 
+            bridge_config
+        ).await?);
+        
+        self.api_bridge = Some(bridge);
+        Ok(())
+    }
+    
+    /// Start API bridge server (if enabled)
+    pub async fn start_api_bridge(&self) -> Result<()> {
+        if let Some(bridge) = &self.api_bridge {
+            bridge.start().await?;
+        }
+        Ok(())
+    }
+    
+    /// Helper method to create a system reference without the bridge (to avoid circular reference)
+    fn clone_without_bridge(&self) -> ThaiEnergyTradingSystem {
+        ThaiEnergyTradingSystem {
+            config: self.config.clone(),
+            blockchain_node: self.blockchain_node.clone(),
+            database_manager: self.database_manager.clone(),
+            grid_manager: self.grid_manager.clone(),
+            security_manager: self.security_manager.clone(),
+            trading_service: self.trading_service.clone(),
+            grid_service: self.grid_service.clone(),
+            governance_service: self.governance_service.clone(),
+            oracle_service: self.oracle_service.clone(),
+            blockchain_interface: self.blockchain_interface.clone(),
+            api_bridge: None, // Don't include the bridge in the clone
+        }
+    }
+    
     // Additional methods for testing and operations
     
     /// Get blockchain status
@@ -274,7 +321,7 @@ impl ThaiEnergyTradingSystem {
     pub fn get_trading_service(&self) -> Arc<TradingService> {
         self.trading_service.clone()
     }
-    
+
     /// Get token service for TPS testing (placeholder)
     pub fn get_token_service(&self) -> Arc<TradingService> {
         self.trading_service.clone() // Using trading service as placeholder for now

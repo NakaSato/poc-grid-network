@@ -50,6 +50,113 @@ pub fn generate_secure_random(length: usize) -> String {
         .collect()
 }
 
+/// Cryptographic utilities for key management and account handling
+pub mod crypto {
+    use sha2::{Sha256, Digest};
+    use hex;
+    
+    /// Validate AccountId format for GridTokenX
+    /// 
+    /// Valid format: gx_[32 hexadecimal characters]
+    /// Example: gx_a1b2c3d4e5f6789012345678901234ab
+    pub fn validate_account_id(account_id: &str) -> Result<bool, Box<dyn std::error::Error>> {
+        // Check minimum length (gx_ + 32 hex chars = 35 total)
+        if account_id.len() != 35 {
+            return Ok(false);
+        }
+        
+        // Check prefix
+        if !account_id.starts_with("gx_") {
+            return Ok(false);
+        }
+        
+        // Extract and validate hex part
+        let hex_part = &account_id[3..];
+        if hex_part.len() != 32 {
+            return Ok(false);
+        }
+        
+        // Verify hex encoding (should decode to 16 bytes)
+        match hex::decode(hex_part) {
+            Ok(decoded) if decoded.len() == 16 => Ok(true),
+            _ => Ok(false),
+        }
+    }
+    
+    /// Generate a test AccountId for development purposes
+    pub fn generate_test_account_id() -> String {
+        use rand::Rng;
+        let mut rng = rand::rng();
+        let random_bytes: [u8; 16] = rng.random();
+        let hex_string = hex::encode(random_bytes);
+        format!("gx_{}", hex_string)
+    }
+    
+    /// Hash data using SHA256
+    pub fn hash_sha256(data: &[u8]) -> [u8; 32] {
+        let mut hasher = Sha256::new();
+        hasher.update(data);
+        hasher.finalize().into()
+    }
+    
+    /// Hash data using SHA256 and return hex string
+    pub fn hash_sha256_hex(data: &[u8]) -> String {
+        let hash = hash_sha256(data);
+        hex::encode(hash)
+    }
+    
+    /// Derive a consistent hash from multiple inputs
+    pub fn hash_multiple_inputs(inputs: &[&[u8]]) -> [u8; 32] {
+        let mut hasher = Sha256::new();
+        for input in inputs {
+            hasher.update(input);
+        }
+        hasher.finalize().into()
+    }
+    
+    /// Generate a secure nonce for cryptographic operations
+    pub fn generate_nonce() -> [u8; 12] {
+        use rand::Rng;
+        let mut rng = rand::rng();
+        rng.random()
+    }
+    
+    /// Generate secure random bytes
+    pub fn generate_random_bytes(length: usize) -> Vec<u8> {
+        use rand::Rng;
+        let mut rng = rand::rng();
+        (0..length).map(|_| rng.random()).collect()
+    }
+    
+    /// Constant-time comparison to prevent timing attacks
+    pub fn constant_time_compare(a: &[u8], b: &[u8]) -> bool {
+        if a.len() != b.len() {
+            return false;
+        }
+        
+        let mut result = 0u8;
+        for (x, y) in a.iter().zip(b.iter()) {
+            result |= x ^ y;
+        }
+        result == 0
+    }
+    
+    /// Validate hex string format
+    pub fn is_valid_hex(hex_str: &str) -> bool {
+        hex::decode(hex_str).is_ok()
+    }
+    
+    /// Convert bytes to hex string
+    pub fn bytes_to_hex(bytes: &[u8]) -> String {
+        hex::encode(bytes)
+    }
+    
+    /// Convert hex string to bytes
+    pub fn hex_to_bytes(hex_str: &str) -> Result<Vec<u8>, hex::FromHexError> {
+        hex::decode(hex_str)
+    }
+}
+
 /// Time utilities
 pub mod time {
     use super::*;
@@ -377,6 +484,12 @@ pub mod error {
         #[error("Invalid order: {0}")]
         InvalidOrder(String),
         
+        #[error("Invalid input: {0}")]
+        InvalidInput(String),
+        
+        #[error("Not found: {0}")]
+        NotFound(String),
+        
         #[error("IO error: {0}")]
         Io(#[from] std::io::Error),
     }
@@ -485,3 +598,4 @@ pub use validation::*;
 pub use conversion::*;
 pub use formatting::*;
 pub use error::{SystemError, SystemResult};
+pub use crypto::*;

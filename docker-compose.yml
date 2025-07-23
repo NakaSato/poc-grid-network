@@ -13,14 +13,16 @@ services:
       - DATABASE_URL=postgresql://thai_energy:${DB_PASSWORD}@postgres:5432/thai_energy_db
       - REDIS_URL=redis://redis:6379
       - BLOCKCHAIN_NETWORK=production
-      - CONSENSUS_ALGORITHM=proof_of_work
+      - CONSENSUS_ALGORITHM=proof_of_authority
       - BLOCK_TIME=30
-      - DIFFICULTY_ADJUSTMENT=true
+      - VALIDATOR_ROTATION_INTERVAL=15
+      - MAX_VALIDATORS=5
+      - AUTHORITY_THRESHOLD=3
       - MAX_BLOCK_SIZE=1048576
       - MEMPOOL_SIZE=10000
     ports:
       - "8080:8080"   # HTTP API
-      - "9090:9090"   # Metrics
+      - "9091:9090"   # Metrics (avoiding conflict with Prometheus)
       - "9944:9944"   # WebSocket
     depends_on:
       - postgres

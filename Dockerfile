@@ -1,7 +1,7 @@
 # Multi-stage build for Thai Energy Trading Blockchain
 
 # Stage 1: Builder stage
-FROM rust:1.83-slim as builder
+FROM rust:latest as builder
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
