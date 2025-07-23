@@ -61,6 +61,7 @@ libp2p = "0.56.0"
 # HTTP server for CDA API
 warp = "0.3"
 futures-util = "0.3"
+base64 = "0.21"
 
 # Async utilities
 futures = "0.3"
@@ -71,3 +72,4 @@ base64ct = "1.6"  # Use older version that doesn't require edition2024
 
 [dev-dependencies]
 tokio-test = "0.4"
+reqwest = { version = "0.11", features = ["json"] }

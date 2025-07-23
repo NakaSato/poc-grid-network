@@ -3,10 +3,8 @@
 //! This module provides secure key management, AccountId derivation, and transaction signing
 //! for the GridTokenX blockchain system.
 
-use crate::types::AccountId;
 use crate::utils::SystemResult;
 use ed25519_dalek::{SigningKey, VerifyingKey, Signature, Signer, Verifier};
-use rand::rngs::OsRng;
 use serde::{Deserialize, Serialize};
 use sha2::{Sha256, Digest};
 use std::collections::HashMap;
@@ -24,7 +22,10 @@ pub struct GridTokenXKeyPair {
 impl GridTokenXKeyPair {
     /// Generate a new keypair with AccountId
     pub fn generate() -> SystemResult<Self> {
-        let signing_key = SigningKey::generate(&mut OsRng);
+        use rand::Rng;
+        let mut rng = rand::rng();
+        let private_key_bytes: [u8; 32] = rng.random();
+        let signing_key = SigningKey::from_bytes(&private_key_bytes);
         let verifying_key = signing_key.verifying_key();
         let account_id = derive_account_id(&verifying_key)?;
         
@@ -106,8 +107,8 @@ impl GridTokenXKeyPair {
 /// Transaction signature structure
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TransactionSignature {
-    pub signature: String, // Hex encoded signature
-    pub public_key: String, // Hex encoded public key
+    pub signature: Vec<u8>, // Hex encoded signature
+    pub public_key: Vec<u8>, // Hex encoded public key
     pub account_id: String,
     pub timestamp: DateTime<Utc>,
 }
@@ -149,8 +150,8 @@ impl AccountManager {
     }
     
     /// Import account from private key
-    pub async fn import_account(&self, private_key: SecretKey) -> SystemResult<String> {
-        let keypair = GridTokenXKeyPair::from_private_key(private_key)?;
+    pub async fn import_account(&self, private_key_bytes: [u8; 32]) -> SystemResult<String> {
+        let keypair = GridTokenXKeyPair::from_private_key_bytes(&private_key_bytes)?;
         let account_id = keypair.account_id().to_string();
         
         // Validate AccountId
@@ -215,15 +216,19 @@ impl AccountManager {
         let message_hash = hasher.finalize();
         
         // Verify signature
-        let public_key = PublicKey::from_bytes(&signature.public_key)
-            .map_err(|e| crate::SystemError::InvalidInput(format!("Invalid public key: {}", e)))?;
-        let ed_signature = ed25519_dalek::Signature::from_bytes(&signature.signature)
+        let verifying_key = VerifyingKey::from_bytes(
+            &signature.public_key.as_slice().try_into()
+                .map_err(|_| crate::SystemError::InvalidInput("Invalid public key length".to_string()))?
+        )
+        .map_err(|e| crate::SystemError::InvalidInput(format!("Invalid verifying key: {}", e)))?;
+        
+        let ed_signature = ed25519_dalek::Signature::from_slice(&signature.signature)
             .map_err(|e| crate::SystemError::InvalidInput(format!("Invalid signature: {}", e)))?;
         
-        match public_key.verify(&message_hash, &ed_signature) {
+        match verifying_key.verify(&message_hash, &ed_signature) {
             Ok(()) => {
                 // Additional check: verify AccountId matches public key
-                let derived_account_id = derive_account_id(&public_key)?;
+                let derived_account_id = derive_account_id(&verifying_key)?;
                 Ok(derived_account_id == signature.account_id)
             }
             Err(_) => Ok(false)
@@ -251,8 +256,8 @@ impl AccountManager {
 /// 3. Take first 16 bytes
 /// 4. Encode as hex
 /// 5. Add "gx_" prefix
-pub fn derive_account_id(public_key: &PublicKey) -> SystemResult<String> {
-    let public_key_bytes = public_key.as_bytes();
+pub fn derive_account_id(verifying_key: &VerifyingKey) -> SystemResult<String> {
+    let public_key_bytes = verifying_key.to_bytes();
     
     // Hash the public key
     let mut hasher = Sha256::new();
@@ -314,8 +319,8 @@ pub fn generate_test_account_id() -> String {
 }
 
 /// Verify that an AccountId corresponds to a given public key
-pub fn verify_account_id_matches_public_key(account_id: &str, public_key: &PublicKey) -> SystemResult<bool> {
-    let derived_account_id = derive_account_id(public_key)?;
+pub fn verify_account_id_matches_public_key(account_id: &str, verifying_key: &VerifyingKey) -> SystemResult<bool> {
+    let derived_account_id = derive_account_id(verifying_key)?;
     Ok(derived_account_id == account_id)
 }
 

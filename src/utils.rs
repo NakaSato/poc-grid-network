@@ -155,6 +155,38 @@ pub mod crypto {
     pub fn hex_to_bytes(hex_str: &str) -> Result<Vec<u8>, hex::FromHexError> {
         hex::decode(hex_str)
     }
+    
+    /// Verify a signature using Ed25519
+    pub fn verify_signature(public_key: &[u8], signature: &[u8], message: &[u8]) -> Result<bool, Box<dyn std::error::Error>> {
+        use ed25519_dalek::{VerifyingKey, Signature, Verifier};
+        
+        if public_key.len() != 32 {
+            return Ok(false);
+        }
+        
+        if signature.len() != 64 {
+            return Ok(false);
+        }
+        
+        let verifying_key = VerifyingKey::from_bytes(public_key.try_into().unwrap())?;
+        let signature = Signature::from_bytes(signature.try_into().unwrap());
+        
+        match verifying_key.verify(message, &signature) {
+            Ok(_) => Ok(true),
+            Err(_) => Ok(false),
+        }
+    }
+    
+    /// Derive AccountId from public key bytes
+    pub fn derive_account_id(public_key: &[u8]) -> Result<String, Box<dyn std::error::Error>> {
+        if public_key.len() != 32 {
+            return Err("Public key must be 32 bytes".into());
+        }
+        
+        let hash = hash_sha256(public_key);
+        let hex_string = hex::encode(&hash[0..16]); // Take first 16 bytes (32 hex chars)
+        Ok(format!("gx_{}", hex_string))
+    }
 }
 
 /// Time utilities

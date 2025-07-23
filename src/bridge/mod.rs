@@ -3,6 +3,8 @@ use std::sync::Arc;
 use warp::{Filter, Rejection, Reply};
 use crate::{SystemResult, ThaiEnergyTradingSystem};
 
+pub mod crypto_bridge;
+
 /// Configuration for the API bridge server
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BridgeConfig {

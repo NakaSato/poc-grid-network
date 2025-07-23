@@ -147,7 +147,7 @@ async fn main() -> SystemResult<()> {
     println!("   To: {}", transaction.to);
     println!("   Amount: {} THB cents ({} THB)", transaction.amount, transaction.amount as f64 / 100.0);
     println!("   Energy: {} kWh", transaction.energy_kwh);
-    println!("   Signature: {}...", hex::encode(&signature.signature)[..32]);
+    println!("   Signature: {}...", &hex::encode(&signature.signature)[..32]);
     println!("   Signer: {}", signature.account_id);
     println!("   Timestamp: {}", signature.timestamp);
     
