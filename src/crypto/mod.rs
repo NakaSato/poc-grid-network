@@ -59,6 +59,11 @@ impl GridTokenXKeyPair {
         &self.verifying_key
     }
     
+    /// Get the public key (alias for verifying_key)
+    pub fn public_key(&self) -> &VerifyingKey {
+        &self.verifying_key
+    }
+    
     /// Sign a message
     pub fn sign(&self, message: &[u8]) -> Signature {
         self.signing_key.sign(message)

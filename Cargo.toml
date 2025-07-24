@@ -73,3 +73,22 @@ base64ct = "1.6"  # Use older version that doesn't require edition2024
 [dev-dependencies]
 tokio-test = "0.4"
 reqwest = { version = "0.11", features = ["json"] }
+
+# Testing frameworks
+mockall = "0.12"
+serial_test = "3.0"
+testcontainers = "0.18"
+testcontainers-modules = { version = "0.4", features = ["postgres", "redis"] }
+
+# Property-based testing
+proptest = "1.4"
+quickcheck = "1.0"
+
+# Test utilities
+tempfile = "3.8"
+wiremock = "0.6"
+criterion = { version = "0.5", features = ["html_reports"] }
+
+# Async testing
+futures-test = "0.3"
+tokio-stream = "0.1"

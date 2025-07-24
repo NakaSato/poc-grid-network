@@ -5,7 +5,6 @@
 use crate::config::DatabaseConfig;
 use crate::utils::SystemResult;
 use sqlx::PgPool;
-use redis::Connection;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 

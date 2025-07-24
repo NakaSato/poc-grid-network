@@ -3,7 +3,6 @@
 //! This module provides common utility functions used throughout the system.
 
 use anyhow::Result;
-use chrono::{DateTime, Utc};
 use crate::types::AccountId;
 use uuid::Uuid;
 use blake2::{Blake2b512, Digest};
@@ -191,7 +190,7 @@ pub mod crypto {
 
 /// Time utilities
 pub mod time {
-    use super::*;
+    use chrono::{DateTime, Utc};
     
     /// Get current UTC timestamp
     pub fn now() -> DateTime<Utc> {
@@ -222,8 +221,9 @@ pub mod time {
 }
 
 /// Validation utilities
+/// Validation utilities
 pub mod validation {
-    use super::*;
+    use crate::utils::string_to_account_id;
     
     /// Validate email format
     pub fn is_valid_email(email: &str) -> bool {
@@ -259,8 +259,6 @@ pub mod validation {
 
 /// Conversion utilities
 pub mod conversion {
-    use super::*;
-    
     /// Convert kWh to tokens (1:1 ratio)
     pub fn kwh_to_tokens(kwh: u64) -> u128 {
         kwh as u128
@@ -289,7 +287,6 @@ pub mod conversion {
 
 /// Formatting utilities
 pub mod formatting {
-    use super::*;
     
     /// Format balance with proper decimal places
     pub fn format_balance(balance: u128) -> String {
@@ -328,7 +325,6 @@ pub mod formatting {
 
 /// Mathematical utilities
 pub mod math {
-    use super::*;
     
     /// Calculate percentage
     pub fn calculate_percentage(value: f64, total: f64) -> f64 {
@@ -391,7 +387,6 @@ pub mod math {
 
 /// Network utilities
 pub mod network {
-    use super::*;
     
     /// Check if IP address is valid
     pub fn is_valid_ip(ip: &str) -> bool {
@@ -421,7 +416,6 @@ pub mod network {
 
 /// Caching utilities
 pub mod cache {
-    use super::*;
     use std::collections::HashMap;
     use std::time::{Duration, Instant};
     
@@ -478,7 +472,6 @@ pub mod cache {
 
 /// Error handling utilities
 pub mod error {
-    use super::*;
     
     /// Standard error types for the system
     #[derive(Debug, thiserror::Error)]
@@ -544,8 +537,9 @@ pub mod error {
 
 /// Testing utilities
 pub mod testing {
-    use super::*;
     use crate::types::GridCoordinates;
+    use crate::AccountId;
+    use crate::utils::{generate_order_id, time};
     
     /// Create a test account ID
     pub fn create_test_account_id() -> AccountId {

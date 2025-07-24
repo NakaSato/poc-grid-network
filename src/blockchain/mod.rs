@@ -17,7 +17,6 @@ use crate::blockchain::smart_contracts::{SmartContractVM, ContractABI, ContractE
 use crate::blockchain::transactions::{EnergyTransactionValidator, TransactionValidationResult, EnergyTransactionEnvelope};
 use crate::types::AccountId;
 use std::sync::Arc;
-use tokio::sync::RwLock;
 
 /// Blockchain engine that coordinates all blockchain components
 pub struct BlockchainEngine {

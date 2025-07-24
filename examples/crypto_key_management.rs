@@ -39,12 +39,12 @@ async fn main() -> SystemResult<()> {
     println!("👩 Alice's Account:");
     println!("   AccountId: {}", alice_keypair.account_id());
     println!("   Public Key: {}", hex::encode(alice_keypair.export_public_key_bytes()));
-    println!("   Private Key: {}", hex::encode(alice_keypair.export_private_key().to_bytes()));
+    println!("   Private Key: {}", hex::encode(alice_keypair.export_private_key_bytes()));
     
     println!("\n👨 Bob's Account:");
     println!("   AccountId: {}", bob_keypair.account_id());
     println!("   Public Key: {}", hex::encode(bob_keypair.export_public_key_bytes()));
-    println!("   Private Key: {}", hex::encode(bob_keypair.export_private_key().to_bytes()));
+    println!("   Private Key: {}", hex::encode(bob_keypair.export_private_key_bytes()));
     
     // 2. Validate AccountIds
     println!("\n2️⃣ AccountId Validation");
@@ -122,8 +122,8 @@ async fn main() -> SystemResult<()> {
     let account_manager = AccountManager::new();
     
     // Import Alice's and Bob's accounts
-    let alice_imported_id = account_manager.import_account(alice_keypair.export_private_key()).await?;
-    let bob_imported_id = account_manager.import_account(bob_keypair.export_private_key()).await?;
+    let alice_imported_id = account_manager.import_account(alice_keypair.export_private_key_bytes()).await?;
+    let bob_imported_id = account_manager.import_account(bob_keypair.export_private_key_bytes()).await?;
     
     println!("Imported Accounts:");
     println!("   Alice: {}", alice_imported_id);
@@ -210,10 +210,9 @@ async fn main() -> SystemResult<()> {
             grid_code: "BKK001".to_string(),
             meter_id: "M001".to_string(),
         },
-        delivery_time: Utc::now() + chrono::Duration::hours(1),
-        expiry_time: Utc::now() + chrono::Duration::days(1),
-        status: OrderStatus::Active,
-        created_at: Utc::now(),
+        timestamp: Utc::now(),
+        updated_at: Utc::now(),
+        status: OrderStatus::Pending,
     };
     
     println!("Energy Order:");

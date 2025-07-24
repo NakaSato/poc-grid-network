@@ -4,11 +4,10 @@
 //! energy trading system, including order placement, market data, and real-time updates.
 
 use crate::application::enhanced_trading::EnhancedTradingService;
-use crate::runtime::continuous_double_auction::{MarketDepth, OrderBookEvent, TradeExecution};
+use crate::runtime::continuous_double_auction::TradeExecution;
 use crate::types::*;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use tokio::sync::broadcast;
 use uuid::Uuid;
 use warp::{Filter, Reply};
 
@@ -428,4 +427,3 @@ pub async fn start_cda_api_server(
 
 // Re-export the futures_util trait for WebSocket handling
 use futures_util::{SinkExt, StreamExt};
-use warp::ws::Message;

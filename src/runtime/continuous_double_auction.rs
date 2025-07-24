@@ -14,14 +14,12 @@ use crate::{
     runtime::cda::{
         fees::FeeCalculator,
         market_data::MarketDataManager,
-        matching::MatchingEngine,
         orders::OrderManager,
-        types::*,
     },
     types::*,
     utils::SystemResult,
 };
-use std::collections::{BTreeMap, HashMap, VecDeque};
+use std::collections::{BTreeMap, VecDeque};
 use std::sync::Arc;
 use tokio::sync::{broadcast, RwLock};
 use uuid::Uuid;

@@ -13,7 +13,6 @@ use std::str::FromStr;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH, Duration};
 use tokio::sync::RwLock;
-use uuid::Uuid;
 
 /// Proof-of-Authority consensus engine
 pub struct ConsensusEngine {
@@ -411,7 +410,7 @@ impl ConsensusEngine {
     }
     
     /// Verify validator signature on a block
-    pub fn verify_block_signature(&self, block: &EnergyBlock) -> SystemResult<bool> {
+    pub fn verify_block_signature(&self, _block: &EnergyBlock) -> SystemResult<bool> {
         // In a real implementation, this would verify the cryptographic signature
         // For now, just check if the validator is in the authority set
         // TODO: Implement actual signature verification with validator's public key
@@ -597,6 +596,7 @@ impl ConsensusEngine {
     }
     
     /// Apply transaction to blockchain state
+    #[allow(dead_code)]
     async fn apply_transaction_to_state(state: &mut BlockchainState, tx: &EnergyTransactionEnvelope) {
         // Remove from pending transactions
         state.pending_transactions.retain(|pending_tx| pending_tx.hash != tx.hash);

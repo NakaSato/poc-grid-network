@@ -3,10 +3,9 @@
 //! Order lifecycle management and validation for the Continuous Double Auction system.
 
 use super::types::*;
-use crate::types::*;
 use crate::utils::SystemResult;
 use chrono::Utc;
-use std::collections::{BTreeMap, HashMap, VecDeque};
+use std::collections::{BTreeMap, HashMap};
 use uuid::Uuid;
 
 /// Order lifecycle manager for CDA operations
@@ -59,7 +58,7 @@ impl OrderManager {
     pub fn get_expired_orders(&self, current_time: chrono::DateTime<Utc>) -> Vec<Uuid> {
         let mut expired = Vec::new();
         
-        for (expiry_time, order_ids) in self.expiry_index.range(..=current_time) {
+        for (_expiry_time, order_ids) in self.expiry_index.range(..=current_time) {
             expired.extend(order_ids.clone());
         }
         
